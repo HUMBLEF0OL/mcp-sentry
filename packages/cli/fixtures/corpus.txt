@@ -1,0 +1,35 @@
+# mcp-sentry false-positive corpus
+#
+# Format: owner/repo@commitSHA
+# One entry per line. Comments (#) and blanks are ignored by `scripts/measure-fp.ts`.
+#
+# Initial seed targets: 5 official Anthropic MCP examples,
+# 10 most-downloaded community MCP packages, 5 awesome-mcp servers.
+# Replace each TODO commit SHA with a pinned 40-char hash before tagging v1.0.0
+# (see docs/Implementation Plan.md §11 / §12).
+#
+# Official Anthropic MCP examples
+modelcontextprotocol/servers@4503e2d12b799448cd05f789dd40f9643a8d1a6c
+modelcontextprotocol/python-sdk@TODO_SHA_002
+modelcontextprotocol/typescript-sdk@4fbcfcd176b6b189970263c4625eb6e60db043d2
+modelcontextprotocol/inspector@f18775a1a5f3bd4b319763b4c12b3230091dd122
+modelcontextprotocol/create-python-server@TODO_SHA_005
+#
+# Most-downloaded MCP server packages (npm)
+mendableai/firecrawl-mcp-server@TODO_SHA_006
+modelcontextprotocol/server-filesystem@TODO_SHA_007
+modelcontextprotocol/server-github@TODO_SHA_008
+modelcontextprotocol/server-postgres@TODO_SHA_009
+modelcontextprotocol/server-puppeteer@TODO_SHA_010
+modelcontextprotocol/server-slack@TODO_SHA_011
+modelcontextprotocol/server-brave-search@TODO_SHA_012
+modelcontextprotocol/server-google-maps@TODO_SHA_013
+modelcontextprotocol/server-fetch@TODO_SHA_014
+modelcontextprotocol/server-everything@TODO_SHA_015
+#
+# Community MCP servers (awesome-mcp)
+punkpeye/awesome-mcp-servers@d16b4648b32909b344dc7c2d3f8aa46c44a7b683
+zueai/mcp-manager@0713b36f75aa27ce99871bb316c36ee9aa01e2fe
+sooperset/mcp-atlassian@TODO_SHA_018
+metoro-io/mcp-golang@TODO_SHA_019
+ferrislucas/iterm-mcp@TODO_SHA_020

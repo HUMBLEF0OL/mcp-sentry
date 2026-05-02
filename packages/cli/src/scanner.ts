@@ -4,6 +4,7 @@ import { Project, type SourceFile } from 'ts-morph';
 import { getActiveChecks } from './registry.js';
 import type { CheckResult, ScanOptions, SkippedFile } from './types.js';
 import { type Ignore, createIgnore } from './util/ignore.js';
+import { applySuppressions } from './util/suppression.js';
 
 const DEFAULT_EXCLUDES = ['node_modules/', 'dist/', '.git/', 'coverage/', '**/*.d.ts'];
 
@@ -114,8 +115,9 @@ export async function runScan(opts: ScanOptions): Promise<ScanReport> {
 		}),
 	);
 
+	const findings = await applySuppressions(findingsArrays.flat());
 	return {
-		findings: findingsArrays.flat(),
+		findings,
 		skippedFiles,
 		scannedFileCount: sources.length,
 	};

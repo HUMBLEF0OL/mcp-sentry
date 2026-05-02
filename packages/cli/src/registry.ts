@@ -1,13 +1,48 @@
+import mcp01 from './checks/mcp01-secrets.js';
+import mcp02 from './checks/mcp02-scope.js';
+import mcp03 from './checks/mcp03-poisoning.js';
+import mcp04 from './checks/mcp04-supply-chain.js';
 import mcp05 from './checks/mcp05-injection.js';
 import mcp06 from './checks/mcp06-intent.js';
 import type { CheckDescriptor } from './types.js';
 
 /**
  * Check registry — single source of truth for the `checks` subcommand and
- * the scanner. Phase 1 ships MCP05 (active) and MCP06 (deferred stub).
- * Remaining checks land in Phase 2/3.
+ * the scanner.
  */
 export const REGISTRY: CheckDescriptor[] = [
+	{
+		owaspId: 'MCP01',
+		title: 'Token / Secret Exposure',
+		description: 'Detects hardcoded API keys, tokens, and other secrets in source.',
+		severities: ['critical'],
+		status: 'active',
+		run: mcp01,
+	},
+	{
+		owaspId: 'MCP02',
+		title: 'Privilege Scope Creep',
+		description: 'Flags overly-broad Zod schemas and unbounded fs / glob access patterns.',
+		severities: ['high', 'medium'],
+		status: 'active',
+		run: mcp02,
+	},
+	{
+		owaspId: 'MCP03',
+		title: 'Tool Poisoning',
+		description: 'Detects hidden instructions, ANSI escapes, and shadowed tool names.',
+		severities: ['high', 'medium'],
+		status: 'active',
+		run: mcp03,
+	},
+	{
+		owaspId: 'MCP04',
+		title: 'Supply Chain',
+		description: 'Audits dependencies, version ranges, lockfile presence, and known-bad packages.',
+		severities: ['critical', 'high', 'medium'],
+		status: 'active',
+		run: mcp04,
+	},
 	{
 		owaspId: 'MCP05',
 		title: 'Command Injection',

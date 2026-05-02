@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "timestamp": "2026-05-02T14:45:36.948Z",
+  "corpusSize": 2,
+  "total": 0,
+  "truePositive": 0,
+  "falsePositive": 0,
+  "fpRate": 0,
+  "perRepo": [
+    {
+      "repo": "modelcontextprotocol/servers",
+      "total": 0,
+      "truePositive": 0,
+      "falsePositive": 0
+    },
+    {
+      "repo": "modelcontextprotocol/typescript-sdk",
+      "total": 0,
+      "truePositive": 0,
+      "falsePositive": 0
+    }
+  ]
+}

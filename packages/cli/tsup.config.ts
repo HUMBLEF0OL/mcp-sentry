@@ -1,5 +1,10 @@
 import { defineConfig } from 'tsup';
 
+// `chalk@5` and `ora@8` are ESM-only. To support both `dist/index.cjs` and
+// `dist/index.mjs`, inline them via `noExternal` so the CJS bundle can call
+// them without a runtime `require()` of an ESM module (which Node refuses).
+const noExternal = ['chalk', 'ora', 'log-symbols', 'cli-cursor', 'restore-cursor'];
+
 export default defineConfig([
 	// Library entry — imported by tests and (eventually) downstream programmatic use.
 	{
@@ -12,6 +17,7 @@ export default defineConfig([
 		bundle: true,
 		shims: true,
 		shebang: false,
+		noExternal,
 		outExtension({ format }) {
 			return { js: format === 'cjs' ? '.cjs' : '.mjs' };
 		},

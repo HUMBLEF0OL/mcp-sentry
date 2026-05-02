@@ -1,0 +1,8 @@
+// VULNERABLE FIXTURE: hardcoded secrets that mcp-sentry MCP01 must detect.
+
+const ANTHROPIC_KEY = 'sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const GH_TOKEN = 'gtest_1234567890abcdefghijklmnopqrstuvwxAB';
+const AWS_ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE'.replace('EXAMPLE', 'REALKEY');
+const AWS_AKIA = 'AKIAIOSFODNN7TESTKEY';
+
+export { ANTHROPIC_KEY, GH_TOKEN, AWS_ACCESS_KEY_ID, AWS_AKIA };
