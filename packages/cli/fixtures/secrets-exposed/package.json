@@ -1,6 +1,6 @@
 {
-    "name": "secrets-exposed-fixture",
-    "version": "0.0.0",
-    "private": true,
-    "type": "module"
+	"name": "secrets-exposed-fixture",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module"
 }

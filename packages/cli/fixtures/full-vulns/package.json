@@ -1,11 +1,11 @@
 {
-    "name": "full-vulns-fixture",
-    "version": "0.0.0",
-    "private": true,
-    "type": "module",
-    "dependencies": {
-        "left-pad": "*",
-        "lodash": "^4.17.10",
-        "express": "^4.18.0"
-    }
+	"name": "full-vulns-fixture",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"left-pad": "*",
+		"lodash": "^4.17.10",
+		"express": "^4.18.0"
+	}
 }

@@ -1,0 +1,36 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Configuration" docs>
+	<h1>Configuration</h1>
+	<p class="lede">Most projects ship with no config. When you need overrides, here they are.</p>
+
+	<h2>CLI flags</h2>
+	<div class="table-wrap">
+		<table>
+			<thead><tr><th>Flag</th><th>Alias</th><th>Description</th></tr></thead>
+			<tbody>
+				<tr><td><code>--format</code></td><td><code>-f</code></td><td>Output format: text / json / sarif / markdown.</td></tr>
+				<tr><td><code>--output</code></td><td><code>-o</code></td><td>Write report to a file instead of stdout.</td></tr>
+				<tr><td><code>--report</code></td><td>—</td><td>POST grade to the badge API. Requires owner/repo.</td></tr>
+				<tr><td><code>--fail-on</code></td><td>—</td><td>Exit 1 if grade is below this threshold (A/B/C/D/F).</td></tr>
+				<tr><td><code>--disable</code></td><td>—</td><td>Skip a check by OWASP ID. Repeatable.</td></tr>
+				<tr><td><code>--ignore</code></td><td>—</td><td>Glob to exclude. Repeatable.</td></tr>
+				<tr><td><code>--version</code></td><td><code>-V</code></td><td>Print version. <code>-v</code> is reserved.</td></tr>
+			</tbody>
+		</table>
+	</div>
+
+	<h2><code>.mcp-sentry.json</code></h2>
+	<pre><code>{`{
+  "ignore": ["src/fixtures/**", "src/test/**"],
+  "disable": ["MCP08"],
+  "failOn": "B",
+  "report": { "owner": "acme", "repo": "my-mcp-server" }
+}`}</code></pre>
+
+	<h2>Inline suppression</h2>
+	<pre><code>{`// mcp-sentry-ignore: MCP05
+exec(userInput);`}</code></pre>
+	<p>Suppressed findings are excluded from grading and reported with <code>"suppressed": true</code>.</p>
+</Base>

@@ -1,55 +1,55 @@
 {
-    "description": "Expected mcp-sentry findings for the full-vulns fixture. At least one finding per active check (MCP01–MCP08). Used as documentation; targeted asserts live in src/checks/*.test.ts. Note: MCP04-004 (missing lockfile) is NOT listed because the fixture lives inside the mcp-sentry monorepo whose root pnpm-lock.yaml is picked up by the workspace walk-up (G1). The missing-lockfile path is covered by an isolated tmp-dir test in src/checks/mcp04-supply-chain.test.ts.",
-    "expectedFindings": [
-        {
-            "owaspId": "MCP02",
-            "checkId": "MCP02-001",
-            "severity": "high"
-        },
-        {
-            "owaspId": "MCP02",
-            "checkId": "MCP02-005",
-            "severity": "high"
-        },
-        {
-            "owaspId": "MCP03",
-            "checkId": "MCP03-001",
-            "severity": "high"
-        },
-        {
-            "owaspId": "MCP03",
-            "checkId": "MCP03-002",
-            "severity": "high"
-        },
-        {
-            "owaspId": "MCP04",
-            "checkId": "MCP04-002",
-            "severity": "medium"
-        },
-        {
-            "owaspId": "MCP04",
-            "checkId": "MCP04-003",
-            "severity": "medium"
-        },
-        {
-            "owaspId": "MCP05",
-            "checkId": "MCP05-001",
-            "severity": "critical"
-        },
-        {
-            "owaspId": "MCP07",
-            "checkId": "MCP07-001",
-            "severity": "high"
-        },
-        {
-            "owaspId": "MCP08",
-            "checkId": "MCP08-001",
-            "severity": "medium"
-        },
-        {
-            "owaspId": "MCP08",
-            "checkId": "MCP08-003",
-            "severity": "low"
-        }
-    ]
+	"description": "Expected mcp-sentry findings for the full-vulns fixture. At least one finding per active check (MCP01–MCP08). Used as documentation; targeted asserts live in src/checks/*.test.ts. Note: MCP04-004 (missing lockfile) is NOT listed because the fixture lives inside the mcp-sentry monorepo whose root pnpm-lock.yaml is picked up by the workspace walk-up (G1). The missing-lockfile path is covered by an isolated tmp-dir test in src/checks/mcp04-supply-chain.test.ts.",
+	"expectedFindings": [
+		{
+			"owaspId": "MCP02",
+			"checkId": "MCP02-001",
+			"severity": "high"
+		},
+		{
+			"owaspId": "MCP02",
+			"checkId": "MCP02-005",
+			"severity": "high"
+		},
+		{
+			"owaspId": "MCP03",
+			"checkId": "MCP03-001",
+			"severity": "high"
+		},
+		{
+			"owaspId": "MCP03",
+			"checkId": "MCP03-002",
+			"severity": "high"
+		},
+		{
+			"owaspId": "MCP04",
+			"checkId": "MCP04-002",
+			"severity": "medium"
+		},
+		{
+			"owaspId": "MCP04",
+			"checkId": "MCP04-003",
+			"severity": "medium"
+		},
+		{
+			"owaspId": "MCP05",
+			"checkId": "MCP05-001",
+			"severity": "critical"
+		},
+		{
+			"owaspId": "MCP07",
+			"checkId": "MCP07-001",
+			"severity": "high"
+		},
+		{
+			"owaspId": "MCP08",
+			"checkId": "MCP08-001",
+			"severity": "medium"
+		},
+		{
+			"owaspId": "MCP08",
+			"checkId": "MCP08-003",
+			"severity": "low"
+		}
+	]
 }

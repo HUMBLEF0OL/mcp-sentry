@@ -1,0 +1,55 @@
+---
+import { ACTIVE_RULES, type Rule } from '../../data/rules.ts';
+import Base from '../../layouts/Base.astro';
+
+export function getStaticPaths() {
+	return ACTIVE_RULES.map((rule) => ({ params: { id: rule.id }, props: { rule } }));
+}
+
+interface Props {
+	rule: Rule;
+}
+const { rule } = Astro.props as Props;
+---
+<Base title={`${rule.id} — ${rule.title}`} description={rule.summary} docs>
+	<p class="crumbs"><a href="/docs/rules">All rules</a> <span aria-hidden="true">/</span> <code>{rule.id}</code></p>
+	<h1>{rule.id} — {rule.title}</h1>
+	<p class="rule-meta">
+		{rule.severities.map((s) => <span class={`badge sev-${s}`}>{s}</span>).reduce((a, b) => <>{a} {b}</>, <></>)}
+		<span class="status-pill" data-status={rule.status}>{rule.status}</span>
+	</p>
+
+	<h2>Summary</h2>
+	<p>{rule.summary}</p>
+
+	<h2>Detection</h2>
+	<p>{rule.detection}</p>
+
+	<h2>Bad example</h2>
+	<pre><code>{rule.examplesBad}</code></pre>
+
+	<h2>Good example</h2>
+	<pre><code>{rule.examplesGood}</code></pre>
+
+	<h2>Fix</h2>
+	<p>{rule.fix}</p>
+
+	<h2>References</h2>
+	<ul>
+		{rule.references.map((r) => <li><a href={r.href}>{r.label}</a></li>)}
+	</ul>
+</Base>
+
+<style>
+	.crumbs {
+		font-family: var(--font-mono);
+		font-size: 0.78rem;
+		color: var(--muted);
+		margin-bottom: 0.5rem;
+	}
+	.crumbs a { color: var(--muted); border-bottom: none; }
+	.crumbs a:hover { color: var(--accent); }
+	.crumbs span { margin: 0 0.4rem; color: var(--muted-2); }
+	.crumbs code { background: transparent; border: none; padding: 0; color: var(--fg-strong); }
+	.rule-meta { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+</style>

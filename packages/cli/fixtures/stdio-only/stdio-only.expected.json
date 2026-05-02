@@ -1,4 +1,4 @@
 {
-    "description": "Stdio-only MCP server. Negative-case fixture: MCP07 and MCP08 must NOT fire (TSD §3.4 MCP07).",
-    "expectedFindings": []
+	"description": "Stdio-only MCP server. Negative-case fixture: MCP07 and MCP08 must NOT fire (TSD §3.4 MCP07).",
+	"expectedFindings": []
 }

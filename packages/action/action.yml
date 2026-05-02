@@ -1,0 +1,133 @@
+name: 'mcp-sentry'
+description: 'Static-analysis security linter for TypeScript MCP servers — OWASP MCP Top 10.'
+author: 'mcp-sentry'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  path:
+    description: 'Path to the MCP server directory to scan.'
+    required: false
+    default: '.'
+  min-grade:
+    description: 'Fail the workflow if grade is below this threshold (A/B/C/D/F).'
+    required: false
+    default: 'C'
+  report:
+    description: 'Push grade to the public badge API after scanning.'
+    required: false
+    default: 'false'
+  output-format:
+    description: 'Output format for the primary scan invocation (json/sarif/markdown/text).'
+    required: false
+    default: 'json'
+  github-token:
+    description: 'GITHUB_TOKEN used for PR comments and SARIF upload.'
+    required: true
+  upload-sarif:
+    description: 'Upload SARIF results to the GitHub Security tab.'
+    required: false
+    default: 'false'
+  comment-pr:
+    description: 'Post / update a PR comment with the grade summary.'
+    required: false
+    default: 'true'
+
+outputs:
+  grade:
+    description: 'Computed grade letter (A/B/C/D/F).'
+    value: ${{ steps.scan.outputs.grade }}
+  critical:
+    description: 'Number of critical findings.'
+    value: ${{ steps.scan.outputs.critical }}
+  high:
+    description: 'Number of high findings.'
+    value: ${{ steps.scan.outputs.high }}
+  medium:
+    description: 'Number of medium findings.'
+    value: ${{ steps.scan.outputs.medium }}
+  low:
+    description: 'Number of low findings.'
+    value: ${{ steps.scan.outputs.low }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node.js 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Run mcp-sentry scan (JSON)
+      id: scan
+      shell: bash
+      run: |
+        set -euo pipefail
+        npx --yes mcp-sentry@latest scan "${{ inputs.path }}" \
+          --format json \
+          --output "${RUNNER_TEMP}/mcp-sentry.json" || SCAN_EXIT=$?
+        SCAN_EXIT=${SCAN_EXIT:-0}
+        # The CLI exits non-zero only when --fail-on is set, which we don't use
+        # here — we apply min-grade in a later step. Anything other than 0/1 is
+        # a hard failure.
+        if [ "$SCAN_EXIT" -gt 1 ]; then
+          echo "::error::mcp-sentry scan crashed with exit code $SCAN_EXIT"
+          exit "$SCAN_EXIT"
+        fi
+        node -e "
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/mcp-sentry.json', 'utf8'));
+          const g = r.grade || {};
+          const out = process.env.GITHUB_OUTPUT;
+          fs.appendFileSync(out, 'grade=' + g.grade + '\n');
+          fs.appendFileSync(out, 'critical=' + (g.critical | 0) + '\n');
+          fs.appendFileSync(out, 'high=' + (g.high | 0) + '\n');
+          fs.appendFileSync(out, 'medium=' + (g.medium | 0) + '\n');
+          fs.appendFileSync(out, 'low=' + (g.low | 0) + '\n');
+        "
+
+    - name: Comment PR with grade summary
+      if: ${{ inputs.comment-pr == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      env:
+        MCP_SENTRY_REPORT: ${{ runner.temp }}/mcp-sentry.json
+        MCP_SENTRY_MIN_GRADE: ${{ inputs.min-grade }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const scriptPath = path.join(process.env.GITHUB_ACTION_PATH, 'src', 'pr-comment.js');
+          const postPrComment = require(scriptPath);
+          await postPrComment({ github, context, core });
+
+    - name: Upload SARIF
+      if: ${{ inputs.upload-sarif == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        npx --yes mcp-sentry@latest scan "${{ inputs.path }}" \
+          --format sarif \
+          --output "${RUNNER_TEMP}/mcp-sentry.sarif" || true
+
+    - name: Upload SARIF to GitHub Security tab
+      if: ${{ inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ runner.temp }}/mcp-sentry.sarif
+
+    - name: Push badge report
+      if: ${{ inputs.report == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        npx --yes mcp-sentry@latest scan "${{ inputs.path }}" --report || true
+
+    - name: Enforce min-grade
+      shell: bash
+      env:
+        MCP_SENTRY_MIN_GRADE: ${{ inputs.min-grade }}
+        MCP_SENTRY_GRADE: ${{ steps.scan.outputs.grade }}
+      run: |
+        node "${GITHUB_ACTION_PATH}/src/check-min-grade.js"

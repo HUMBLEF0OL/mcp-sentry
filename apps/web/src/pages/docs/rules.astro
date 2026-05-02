@@ -1,0 +1,32 @@
+---
+import { RULES } from '../../data/rules.ts';
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Rules" docs>
+	<h1>Rules</h1>
+	<p class="lede">One row per OWASP MCP Top 10 category. Active rules ship in v1.0; deferred rules are tracked in the v1.1 roadmap.</p>
+
+	<div class="table-wrap">
+		<table>
+			<thead>
+				<tr><th>ID</th><th>Title</th><th>Status</th><th>Severities</th></tr>
+			</thead>
+			<tbody>
+				{
+					RULES.map((r) => (
+						<tr>
+							<td>
+								{r.status === 'active'
+									? <a href={`/rules/${r.id}`} class="bare"><code>{r.id}</code></a>
+									: <code>{r.id}</code>}
+							</td>
+							<td>{r.title}</td>
+							<td><span class="status-pill" data-status={r.status}>{r.status}</span></td>
+							<td>{r.severities.length === 0 ? '—' : r.severities.map((s) => <span class={`badge sev-${s}`}>{s}</span>).reduce((a, b) => <>{a} {b}</>)}</td>
+						</tr>
+					))
+				}
+			</tbody>
+		</table>
+	</div>
+</Base>

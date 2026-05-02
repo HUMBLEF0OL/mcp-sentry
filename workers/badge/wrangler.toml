@@ -1,0 +1,20 @@
+name = "mcp-sentry-badge"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "MCP_SENTRY_BADGES"
+id = "[FILL: KV namespace ID from Cloudflare dashboard]"
+preview_id = "[FILL: preview KV namespace ID]"
+
+# Route (set when custom domain is registered)
+# [[routes]]
+# pattern = "mcp-sentry.dev/api/*"
+# zone_name = "mcp-sentry.dev"
+
+# Secrets — set via: wrangler secret put BADGE_HMAC_SECRET (v1.1+)
+# [vars]  — no plaintext secrets; use wrangler secret for sensitive values
+
+[dev]
+port = 8787

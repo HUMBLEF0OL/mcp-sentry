@@ -141,3 +141,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Astro
+apps/web/.astro/
+
+# Wrangler local state
+workers/badge/.wrangler/
+

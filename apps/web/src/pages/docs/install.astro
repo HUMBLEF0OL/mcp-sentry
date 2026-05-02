@@ -1,0 +1,38 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Install & usage" docs>
+	<h1>Install &amp; usage</h1>
+	<p class="lede">Zero install. Zero config. One letter grade.</p>
+
+	<h2>One-shot scan</h2>
+	<pre><code>npx mcp-sentry@latest scan ./path/to/server</code></pre>
+
+	<h2>CI usage (GitHub Actions)</h2>
+	<pre><code>{`name: security
+on: [pull_request]
+jobs:
+  mcp-sentry:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: HUMBLEF0OL/mcp-sentry-action@v1
+        with:
+          path: '.'
+          min-grade: 'C'
+          github-token: \${{ secrets.GITHUB_TOKEN }}`}</code></pre>
+
+	<h2>Output formats</h2>
+	<p>
+		Pick one with <code>--format</code>: <code>text</code> (default),
+		<code>json</code>, <code>sarif</code>, <code>markdown</code>.
+		Write to a file with <code>--output report.json</code>.
+	</p>
+
+	<h2>Badge</h2>
+	<pre><code>![mcp-sentry](https://img.shields.io/endpoint?url=https://mcp-sentry.dev/api/badge/OWNER/REPO)</code></pre>
+	<p>The badge reflects the last scan run with <code>--report</code>. See <a href="/docs/config">config</a> for setup.</p>
+</Base>
