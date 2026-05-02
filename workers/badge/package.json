@@ -2,5 +2,10 @@
 	"name": "@mcp-sentry/badge",
 	"version": "0.0.0",
 	"private": true,
-	"license": "MIT"
+	"license": "MIT",
+	"devDependencies": {
+		"miniflare": "^4.20260430.0",
+		"vitest": "^2.1.9",
+		"wrangler": "^4.87.0"
+	}
 }

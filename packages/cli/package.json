@@ -5,7 +5,7 @@
 	"license": "MIT",
 	"type": "module",
 	"bin": {
-		"mcp-sentry": "dist/index.cjs"
+		"mcp-sentry": "dist/bin.cjs"
 	},
 	"main": "dist/index.cjs",
 	"module": "dist/index.mjs",

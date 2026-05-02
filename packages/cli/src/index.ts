@@ -49,6 +49,7 @@ function buildProgram(): Command {
 		.option('--ignore <glob...>', 'additional ignore globs', [] as string[])
 		.action(async (rawPath: string, cmdOpts: ScanCmdOpts, cmd: Command) => {
 			const global = cmd.optsWithGlobals<RootGlobalOpts & ScanCmdOpts>();
+			const ownerRepo = parseOwnerRepo();
 			const opts: ScanOptions = {
 				path: path.resolve(rawPath),
 				format: global.format,
@@ -57,8 +58,8 @@ function buildProgram(): Command {
 				failOn: cmdOpts.failOn,
 				disable: cmdOpts.disable ?? [],
 				ignore: cmdOpts.ignore ?? [],
-				owner: parseOwnerRepo()?.owner,
-				repo: parseOwnerRepo()?.repo,
+				owner: ownerRepo?.owner,
+				repo: ownerRepo?.repo,
 			};
 			const report = await runScan(opts);
 			emitPhase1Report(opts, report.findings, report.skippedFiles, report.scannedFileCount);
@@ -144,10 +145,3 @@ export async function main(argv: string[] = process.argv): Promise<void> {
 	const program = buildProgram();
 	await program.parseAsync(argv);
 }
-
-main().catch((err) => {
-	process.stderr.write(
-		`mcp-sentry: fatal error — ${err instanceof Error ? err.message : String(err)}\n`,
-	);
-	process.exit(2);
-});

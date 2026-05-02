@@ -1,13 +1,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import ignoreModule, { type Ignore } from 'ignore';
-
-// `ignore` ships as a CJS factory; under NodeNext the default import
-// resolves to the namespace, so coerce to the callable factory type.
-const ignore = ignoreModule as unknown as () => Ignore;
 import { Project, type SourceFile } from 'ts-morph';
 import { getActiveChecks } from './registry.js';
 import type { CheckResult, ScanOptions, SkippedFile } from './types.js';
+import { type Ignore, createIgnore } from './util/ignore.js';
 
 const DEFAULT_EXCLUDES = ['node_modules/', 'dist/', '.git/', 'coverage/', '**/*.d.ts'];
 
@@ -17,7 +13,7 @@ function toPosix(p: string): string {
 }
 
 async function loadIgnore(rootDir: string, extra: string[]): Promise<Ignore> {
-	const ig = ignore().add(DEFAULT_EXCLUDES).add(extra);
+	const ig = createIgnore().add(DEFAULT_EXCLUDES).add(extra);
 	const ignoreFile = path.join(rootDir, '.mcp-sentry.ignore');
 	try {
 		const text = await fs.readFile(ignoreFile, 'utf8');

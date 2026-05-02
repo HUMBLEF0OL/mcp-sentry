@@ -133,7 +133,6 @@ function collectTaintedNames(handler: Node, seeds: string[]): Set<string> {
 			if (!expressionReferencesTainted(init, tainted)) continue;
 			const nameNode = v.getNameNode();
 			const before = tainted.size;
-			collectBindingNames(nameNode, [] as string[]); // no-op for sizing
 			const newNames: string[] = [];
 			collectBindingNames(nameNode, newNames);
 			for (const n of newNames) tainted.add(n);
@@ -144,7 +143,11 @@ function collectTaintedNames(handler: Node, seeds: string[]): Set<string> {
 }
 
 function expressionReferencesTainted(node: Node, tainted: Set<string>): boolean {
-	// Treat any sanitiser call as breaking the taint chain.
+	// Treat any sanitiser call as breaking the taint chain. Detection is
+	// conservative: only the call expression itself is short-circuited; a
+	// sanitiser nested inside a template literal (e.g.
+	// `cat ${sanitize(input.path)}`) still flags. Documented limitation —
+	// see docs/rules/MCP05.md (Phase 4).
 	if (Node.isCallExpression(node)) {
 		const callee = node.getExpression();
 		const calleeName = Node.isIdentifier(callee)
@@ -154,10 +157,38 @@ function expressionReferencesTainted(node: Node, tainted: Set<string>): boolean 
 				: '';
 		if (SANITISER_NAMES.has(calleeName)) return false;
 	}
-	for (const id of node.getDescendantsOfKind(SyntaxKind.Identifier)) {
-		if (tainted.has(id.getText())) return true;
-	}
 	if (Node.isIdentifier(node) && tainted.has(node.getText())) return true;
+	for (const id of node.getDescendantsOfKind(SyntaxKind.Identifier)) {
+		if (!tainted.has(id.getText())) continue;
+		if (isNonReferenceIdentifier(id)) continue;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Filter out identifier occurrences that are NOT value references — i.e.
+ * the property name in `obj.foo`, the key in `{ foo: 1 }`, the parameter
+ * name being declared, or the imported binding name. These positions
+ * shadow real value references and would otherwise yield false positives
+ * when a tainted variable shares a name with a property accessor.
+ */
+function isNonReferenceIdentifier(id: Node): boolean {
+	const parent = id.getParent();
+	if (!parent) return false;
+	// `obj.foo` — `foo` is the property name, not a reference.
+	if (Node.isPropertyAccessExpression(parent) && parent.getNameNode() === id) return true;
+	// `obj?.foo` covered by PropertyAccessExpression above (ts-morph models
+	// optional chains as PropertyAccessExpression with a question-dot token).
+	// `{ foo: x }` — `foo` is a property assignment name.
+	if (Node.isPropertyAssignment(parent) && parent.getNameNode() === id) return true;
+	if (Node.isShorthandPropertyAssignment(parent) && parent.getNameNode() === id) return false; // shorthand IS a reference
+	// Parameter / variable declaration names are bindings, not references.
+	if (Node.isParameterDeclaration(parent) && parent.getNameNode() === id) return true;
+	if (Node.isVariableDeclaration(parent) && parent.getNameNode() === id) return true;
+	if (Node.isBindingElement(parent) && parent.getNameNode() === id) return true;
+	// Import / export specifiers.
+	if (Node.isImportSpecifier(parent) || Node.isExportSpecifier(parent)) return true;
 	return false;
 }
 
