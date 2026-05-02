@@ -15,34 +15,34 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const pkgDir = path.resolve(here, '..', 'packages', 'cli');
 
 const result = spawnSync('npm', ['pack', '--dry-run', '--json'], {
-	cwd: pkgDir,
-	shell: process.platform === 'win32',
-	encoding: 'utf8',
+    cwd: pkgDir,
+    shell: process.platform === 'win32',
+    encoding: 'utf8',
 });
 
 if (result.status !== 0) {
-	process.stderr.write(`npm pack failed (exit ${result.status}):\n${result.stderr}\n`);
-	process.exit(2);
+    process.stderr.write(`npm pack failed (exit ${result.status}):\n${result.stderr}\n`);
+    process.exit(2);
 }
 
 let entries;
 try {
-	entries = JSON.parse(result.stdout);
+    entries = JSON.parse(result.stdout);
 } catch (err) {
-	process.stderr.write(`Could not parse npm pack output: ${err.message}\n`);
-	process.exit(2);
+    process.stderr.write(`Could not parse npm pack output: ${err.message}\n`);
+    process.exit(2);
 }
 
 const first = Array.isArray(entries) ? entries[0] : entries;
 if (!first || typeof first.unpackedSize !== 'number') {
-	process.stderr.write('npm pack output missing unpackedSize.\n');
-	process.exit(2);
+    process.stderr.write('npm pack output missing unpackedSize.\n');
+    process.exit(2);
 }
 
 const { unpackedSize, size, filename } = first;
 process.stdout.write(`${filename}: tar=${size}B, unpacked=${unpackedSize}B (cap=${MAX_BYTES}B)\n`);
 
 if (unpackedSize >= MAX_BYTES) {
-	process.stderr.write(`Bundle exceeds ${MAX_BYTES}B unpacked — investigate before release.\n`);
-	process.exit(1);
+    process.stderr.write(`Bundle exceeds ${MAX_BYTES}B unpacked — investigate before release.\n`);
+    process.exit(1);
 }

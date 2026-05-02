@@ -8,7 +8,7 @@ const server = {
     tool(_name, _schema, handler) {
         return handler;
     },
-    connect(_t) {},
+    connect(_t) { },
 };
 
 process.on('uncaughtException', (err) => {
