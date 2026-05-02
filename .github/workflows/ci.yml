@@ -40,6 +40,10 @@ jobs:
       - name: Test
         run: pnpm -r test
 
+      - name: Bundle size budget
+        if: matrix.os == 'ubuntu-latest'
+        run: node scripts/check-bundle-size.mjs
+
   commitlint:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

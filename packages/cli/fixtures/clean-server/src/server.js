@@ -17,7 +17,16 @@ const server = {
     },
 };
 
+process.on('uncaughtException', (err) => {
+    console.error('uncaught', err.message);
+});
+
+process.on('unhandledRejection', (err) => {
+    console.error('rejected', err);
+});
+
 server.tool('list', {}, async (input) => {
+    console.info('tool list invoked');
     const safe = validate(input.binary);
     return new Promise((resolve, reject) => {
         execFile(safe, [], { timeout: 1000 }, (err, stdout) => {

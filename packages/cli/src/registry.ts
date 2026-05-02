@@ -4,6 +4,8 @@ import mcp03 from './checks/mcp03-poisoning.js';
 import mcp04 from './checks/mcp04-supply-chain.js';
 import mcp05 from './checks/mcp05-injection.js';
 import mcp06 from './checks/mcp06-intent.js';
+import mcp07 from './checks/mcp07-auth.js';
+import mcp08 from './checks/mcp08-logging.js';
 import type { CheckDescriptor } from './types.js';
 
 /**
@@ -58,6 +60,24 @@ export const REGISTRY: CheckDescriptor[] = [
 		severities: [],
 		status: 'deferred-v1.1',
 		run: mcp06,
+	},
+	{
+		owaspId: 'MCP07',
+		title: 'Insufficient Authentication',
+		description:
+			'Flags HTTP transports without bearer/JWT/API-key/middleware. Stdio servers are exempt.',
+		severities: ['high'],
+		status: 'active',
+		run: mcp07,
+	},
+	{
+		owaspId: 'MCP08',
+		title: 'Missing Audit Logging',
+		description:
+			'Detects tool handlers without log calls, raw error propagation, and missing global error handler.',
+		severities: ['medium', 'low'],
+		status: 'active',
+		run: mcp08,
 	},
 ];
 

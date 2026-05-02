@@ -1,6 +1,7 @@
 // VULNERABLE FIXTURE: every active mcp-sentry check should fire here.
 
 import { exec } from 'node:child_process';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
 const z = {
     any: () => ({}),
@@ -38,3 +39,8 @@ server.registerTool(
         });
     },
 );
+
+// MCP07-001: HTTP transport wired with no auth anywhere in the project.
+// MCP08-003: no global uncaughtException / unhandledRejection handler.
+const transport = new StreamableHTTPServerTransport();
+void transport;

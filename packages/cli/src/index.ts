@@ -1,11 +1,14 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { Command, Option } from 'commander';
+import { loadConfig } from './config.js';
 import { computeGrade, gradeBelow } from './grade.js';
 import { REGISTRY } from './registry.js';
-import { renderJson, renderText } from './reporter.js';
+import { ReportError, buildReportPayload, postReport } from './report.js';
+import { renderForFormat, renderJson } from './reporter.js';
 import { runScan } from './scanner.js';
 import type { Format, Grade, ScanOptions } from './types.js';
+import { VERSION } from './version.js';
 
 interface RootGlobalOpts {
 	format: Format;
@@ -19,13 +22,9 @@ interface ScanCmdOpts {
 	ignore?: string[];
 }
 
-const VERSION = '0.0.0';
-
 /**
  * Commander collector for repeatable string flags. Every occurrence of the
- * flag is appended to the array; this avoids the surprise where a single
- * `--disable MCP05 MCP04` and two separate `--disable` flags behave
- * differently across Commander minor versions.
+ * flag is appended to the array.
  */
 function collect(value: string, prev: string[] = []): string[] {
 	return prev.concat(value);
@@ -43,12 +42,12 @@ function buildProgram(): Command {
 		.description('Static-analysis security linter for TypeScript MCP servers')
 		.version(VERSION, '-V, --version')
 		.addOption(
-			// SARIF + Markdown reporters land in Phase 3. The choices list is
-			// intentionally narrow until then so users get an actionable error
-			// from Commander instead of silent fallback to text output.
-			new Option('-f, --format <format>', 'output format')
-				.choices(['text', 'json'])
-				.default('text'),
+			new Option('-f, --format <format>', 'output format').choices([
+				'text',
+				'json',
+				'sarif',
+				'markdown',
+			]),
 		);
 
 	program
@@ -70,12 +69,10 @@ function buildProgram(): Command {
 		.option('--ignore <glob>', 'additional ignore glob (repeatable)', collect, [] as string[])
 		.action(async (rawPath: string, cmdOpts: ScanCmdOpts, cmd: Command) => {
 			const global = cmd.optsWithGlobals<RootGlobalOpts & ScanCmdOpts>();
-			const ownerRepo = parseOwnerRepo();
 			const resolvedPath = path.resolve(rawPath);
 			// G6 guard: refuse to walk the entire home tree if the user runs
 			// `mcp-sentry scan` (default `.`) from a directory that has no
-			// `package.json`. This catches the dominant footgun of running the
-			// CLI inside `$HOME` by accident.
+			// `package.json`.
 			if (rawPath === '.') {
 				try {
 					await fs.access(path.join(resolvedPath, 'package.json'));
@@ -87,39 +84,45 @@ function buildProgram(): Command {
 					return;
 				}
 			}
-			// G3: --report lands in Phase 3. Tell the user instead of silently
-			// dropping the flag, otherwise an early adopter will assume their
-			// badge has been updated.
-			if (cmdOpts.report) {
-				process.stderr.write(
-					'mcp-sentry: --report is not yet wired (Phase 3); proceeding without POST.\n',
-				);
+
+			let fileConfig: Awaited<ReturnType<typeof loadConfig>> = {};
+			try {
+				fileConfig = await loadConfig(resolvedPath);
+			} catch (err) {
+				process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+				process.exitCode = 2;
+				return;
 			}
+
+			// CLI flags win over file config (TSD §8.1).
+			const envOwnerRepo = parseOwnerRepo();
 			const opts: ScanOptions = {
 				path: resolvedPath,
-				format: global.format,
+				format: global.format ?? fileConfig.format ?? 'text',
 				output: cmdOpts.output,
 				report: cmdOpts.report ?? false,
-				failOn: cmdOpts.failOn,
-				disable: cmdOpts.disable ?? [],
-				ignore: cmdOpts.ignore ?? [],
-				owner: ownerRepo?.owner,
-				repo: ownerRepo?.repo,
+				failOn: cmdOpts.failOn ?? fileConfig.failOn,
+				disable: mergeArrays(fileConfig.disable, cmdOpts.disable),
+				ignore: mergeArrays(fileConfig.ignore, cmdOpts.ignore),
+				owner: fileConfig.report?.owner ?? envOwnerRepo?.owner,
+				repo: fileConfig.report?.repo ?? envOwnerRepo?.repo,
 			};
-			const report = await runScan(opts);
-			const input = {
+
+			const scanReport = await runScan(opts);
+			const renderInput = {
 				opts,
-				findings: report.findings,
-				skippedFiles: report.skippedFiles,
-				scannedFileCount: report.scannedFileCount,
+				findings: scanReport.findings,
+				skippedFiles: scanReport.skippedFiles,
+				scannedFileCount: scanReport.scannedFileCount,
 			};
-			const out = opts.format === 'json' ? renderJson(input) : renderText(input);
+
+			const out = renderForFormat(renderInput);
 			if (opts.output) {
-				// G4: --output writes a plain-text artefact. Strip ANSI SGR plus
-				// the box-drawing chars in the grade box so the file does not
-				// render as mojibake on Windows non-UTF-8 codepages.
+				// G4: --output strips ANSI + box-drawing for text/markdown so
+				// the file does not render as mojibake on Windows non-UTF-8
+				// codepages.
 				const body =
-					opts.format === 'json'
+					opts.format === 'json' || opts.format === 'sarif'
 						? out
 						: stripAnsi(out).replace(/[\u2500-\u257F]/g, '-');
 				await fs.mkdir(path.dirname(path.resolve(opts.output)), { recursive: true });
@@ -127,11 +130,34 @@ function buildProgram(): Command {
 			} else {
 				process.stdout.write(out);
 			}
-			if (opts.failOn) {
-				const g = computeGrade(report.findings);
-				if (gradeBelow(g.grade, opts.failOn)) {
-					process.exitCode = 1;
+
+			const grade = computeGrade(scanReport.findings);
+
+			if (opts.report) {
+				try {
+					const payload = buildReportPayload(opts, grade);
+					if (!payload) {
+						process.stderr.write(
+							'mcp-sentry: --report skipped: owner/repo not set (use .mcp-sentry.json or GITHUB_REPOSITORY).\n',
+						);
+					} else {
+						await postReport(payload);
+					}
+				} catch (err) {
+					if (err instanceof ReportError) {
+						process.stderr.write(`${err.message}\n`);
+					} else {
+						process.stderr.write(
+							`mcp-sentry: --report failed: ${err instanceof Error ? err.message : String(err)}\n`,
+						);
+					}
+					// --report failure must NOT change the exit code (TSD §6.6 —
+					// the badge is a social signal, not a security gate).
 				}
+			}
+
+			if (opts.failOn && gradeBelow(grade.grade, opts.failOn)) {
+				process.exitCode = 1;
 			}
 		});
 
@@ -140,26 +166,29 @@ function buildProgram(): Command {
 		.description('List the check registry')
 		.action((_args, cmd: Command) => {
 			const global = cmd.optsWithGlobals<RootGlobalOpts>();
-			emitChecks(global.format);
+			emitChecks(global.format ?? 'text');
 		});
 
 	return program;
 }
 
+function mergeArrays(a: string[] | undefined, b: string[] | undefined): string[] {
+	const out: string[] = [];
+	if (a) out.push(...a);
+	if (b) out.push(...b);
+	return out;
+}
+
 /**
  * Parse `owner` / `repo` from the `GITHUB_REPOSITORY` environment variable
  * (set by GitHub Actions as `acme/my-server`). Returns undefined when the
- * variable is unset or malformed. Exported for unit testing — see
- * Plan §6.4: critical path for the GitHub Action `--report` invocation.
+ * variable is unset or malformed. Exported for unit testing.
  */
 export function parseOwnerRepo(
 	env: NodeJS.ProcessEnv = process.env,
 ): { owner: string; repo: string } | undefined {
 	const raw = env.GITHUB_REPOSITORY;
 	if (!raw) return undefined;
-	// `actions/github-script` interpolation occasionally yields a trailing
-	// newline; trim before splitting so the worker `^[a-zA-Z0-9_.-]+$` regex
-	// (TSD §6.2) does not reject the resulting repo segment.
 	const ghr = raw.trim();
 	if (!ghr) return undefined;
 	const [owner, repo] = ghr.split('/', 2);
@@ -190,3 +219,6 @@ export async function main(argv: string[] = process.argv): Promise<void> {
 	const program = buildProgram();
 	await program.parseAsync(argv);
 }
+
+// Re-exported for downstream programmatic consumers and tests.
+export { renderJson };
