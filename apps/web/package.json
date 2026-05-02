@@ -1,6 +1,6 @@
 {
-	"name": "@mcp-sentry/web",
-	"version": "0.0.0",
-	"private": true,
-	"license": "MIT"
+    "name": "@mcp-sentry/web",
+    "version": "0.0.0",
+    "private": true,
+    "license": "MIT"
 }

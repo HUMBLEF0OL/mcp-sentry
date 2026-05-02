@@ -6,3 +6,4 @@ autoInstallPeers: true
 onlyBuiltDependencies:
   - "@biomejs/biome"
   - esbuild
+  - workerd
