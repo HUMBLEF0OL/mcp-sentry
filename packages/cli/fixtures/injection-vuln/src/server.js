@@ -5,27 +5,27 @@ import { exec } from 'node:child_process';
 import { readFile } from 'node:fs';
 
 const server = {
-	tool(_name, _schema, handler) {
-		return handler;
-	},
+    tool(_name, _schema, handler) {
+        return handler;
+    },
 };
 
 server.tool('run', {}, async (input) => {
-	const cmd = `echo ${input.command}`;
-	return new Promise((resolve, reject) => {
-		exec(cmd, (err, stdout) => {
-			if (err) reject(err);
-			else resolve(stdout);
-		});
-	});
+    const cmd = `echo ${input.command}`;
+    return new Promise((resolve, reject) => {
+        exec(cmd, (err, stdout) => {
+            if (err) reject(err);
+            else resolve(stdout);
+        });
+    });
 });
 
 server.tool('read', {}, async (input) => {
-	const target = input.path;
-	return new Promise((resolve, reject) => {
-		readFile(target, 'utf8', (err, data) => {
-			if (err) reject(err);
-			else resolve(data);
-		});
-	});
+    const target = input.path;
+    return new Promise((resolve, reject) => {
+        readFile(target, 'utf8', (err, data) => {
+            if (err) reject(err);
+            else resolve(data);
+        });
+    });
 });

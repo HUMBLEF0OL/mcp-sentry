@@ -8,25 +8,25 @@ import type { CheckDescriptor } from './types.js';
  * Remaining checks land in Phase 2/3.
  */
 export const REGISTRY: CheckDescriptor[] = [
-    {
-        owaspId: 'MCP05',
-        title: 'Command Injection',
-        description: 'Detects tool input flowing unsanitised into child_process or fs sinks.',
-        severities: ['critical'],
-        status: 'active',
-        run: mcp05,
-    },
-    {
-        owaspId: 'MCP06',
-        title: 'Intent Subversion',
-        description: 'Deferred to v1.1. Emits a one-time stderr notice; produces no findings.',
-        severities: [],
-        status: 'deferred-v1.1',
-        run: mcp06,
-    },
+	{
+		owaspId: 'MCP05',
+		title: 'Command Injection',
+		description: 'Detects tool input flowing unsanitised into child_process or fs sinks.',
+		severities: ['critical'],
+		status: 'active',
+		run: mcp05,
+	},
+	{
+		owaspId: 'MCP06',
+		title: 'Intent Subversion',
+		description: 'Deferred to v1.1. Emits a one-time stderr notice; produces no findings.',
+		severities: [],
+		status: 'deferred-v1.1',
+		run: mcp06,
+	},
 ];
 
 export function getActiveChecks(disabled: string[]): CheckDescriptor[] {
-    const set = new Set(disabled.map((d) => d.toUpperCase()));
-    return REGISTRY.filter((c) => !set.has(c.owaspId.toUpperCase()));
+	const set = new Set(disabled.map((d) => d.toUpperCase()));
+	return REGISTRY.filter((c) => !set.has(c.owaspId.toUpperCase()));
 }

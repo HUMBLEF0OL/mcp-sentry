@@ -14,23 +14,23 @@ let warned = false;
  * outside the registry path.
  */
 export class NotImplementedError extends Error {
-    constructor(message = 'MCP06 intent-subversion check is deferred to v1.1') {
-        super(message);
-        this.name = 'NotImplementedError';
-    }
+	constructor(message = 'MCP06 intent-subversion check is deferred to v1.1') {
+		super(message);
+		this.name = 'NotImplementedError';
+	}
 }
 
 const run: CheckFn = async (): Promise<CheckResult[]> => {
-    if (!warned) {
-        warned = true;
-        process.stderr.write('mcp-sentry: MCP06 intent-subversion check is deferred to v1.1\n');
-    }
-    return [];
+	if (!warned) {
+		warned = true;
+		process.stderr.write('mcp-sentry: MCP06 intent-subversion check is deferred to v1.1\n');
+	}
+	return [];
 };
 
 /** Test-only: reset the one-time warning flag. */
 export function __resetWarnedForTests(): void {
-    warned = false;
+	warned = false;
 }
 
 export default run;

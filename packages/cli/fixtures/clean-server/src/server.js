@@ -7,22 +7,22 @@ import path from 'node:path';
 const ALLOWED_BINARIES = new Set(['ls']);
 
 function validate(name) {
-	if (!ALLOWED_BINARIES.has(name)) throw new Error('binary not allowed');
-	return name;
+    if (!ALLOWED_BINARIES.has(name)) throw new Error('binary not allowed');
+    return name;
 }
 
 const server = {
-	tool(_name, _schema, handler) {
-		return handler;
-	},
+    tool(_name, _schema, handler) {
+        return handler;
+    },
 };
 
 server.tool('list', {}, async (input) => {
-	const safe = validate(input.binary);
-	return new Promise((resolve, reject) => {
-		execFile(safe, [], { timeout: 1000 }, (err, stdout) => {
-			if (err) reject(err);
-			else resolve(stdout);
-		});
-	});
+    const safe = validate(input.binary);
+    return new Promise((resolve, reject) => {
+        execFile(safe, [], { timeout: 1000 }, (err, stdout) => {
+            if (err) reject(err);
+            else resolve(stdout);
+        });
+    });
 });
