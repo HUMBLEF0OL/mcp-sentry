@@ -1,7 +1,15 @@
 {
-	"description": "Expected mcp-sentry findings for the injection-vuln fixture (MCP05 critical).",
-	"expectedFindings": [
-		{ "owaspId": "MCP05", "checkId": "MCP05-001", "severity": "critical" },
-		{ "owaspId": "MCP05", "checkId": "MCP05-002", "severity": "critical" }
-	]
+    "description": "Expected mcp-sentry findings for the injection-vuln fixture (MCP05 critical).",
+    "expectedFindings": [
+        {
+            "owaspId": "MCP05",
+            "checkId": "MCP05-001",
+            "severity": "critical"
+        },
+        {
+            "owaspId": "MCP05",
+            "checkId": "MCP05-002",
+            "severity": "critical"
+        }
+    ]
 }
