@@ -51,7 +51,7 @@ interface PatternCase {
 const CASES: PatternCase[] = [
 	{
 		id: 'MCP01-AWS-AK',
-		positive: 'token = "AKIAIOSFODNN7TESTKEY";',
+		positive: 'token = "AKIA' + 'IOSFODNN7TESTKEY";',
 		negative: 'token = "AKIAshort";',
 	},
 	{
@@ -65,47 +65,48 @@ const CASES: PatternCase[] = [
 	},
 	{
 		id: 'MCP01-GH-PAT',
-		positive: 'const t="github_test_11AAAAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";',
+		positive: 'const t="github_pat_' + '11AAAAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";',
 	},
-	{ id: 'MCP01-GH-CLASSIC', positive: 'const t = "gtest_1234567890abcdefghijklmnopqrstuvwxAB";' },
-	{ id: 'MCP01-GOOGLE', positive: 'const k="AIzaFAKEDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI";' },
-	{ id: 'MCP01-GCP-OAUTH', positive: 'secret = GOTEST_Bu5Lp7HTvYCAbcDefGhIjKlMnOpQ' },
-	{ id: 'MCP01-SLACK', positive: 'const t="xtest-1234567890-abcdefghij";' },
+	{ id: 'MCP01-GH-CLASSIC', positive: 'const t = "ghp_' + '1234567890abcdefghijklmnopqrstuvwxAB";' },
+	{ id: 'MCP01-GOOGLE', positive: 'const k="AIza' + 'SyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI";' },
+	{ id: 'MCP01-GCP-OAUTH', positive: 'secret = GOCSPX-' + 'Bu5Lp7HTvYCAbcDefGhIjKlMnOpQ' },
+	{ id: 'MCP01-SLACK', positive: 'const t="xoxb-' + '1234567890-abcdefghij";' },
 	{
 		id: 'MCP01-SLACK-WEBHOOK',
 		positive:
 			'url = "https://hooks.slack.com/services/T0123ABCD/B0123ABCD/' + 'abcdef1234567890ABCDEFGH"',
 	},
 	{ id: 'MCP01-STRIPE', positive: 'const k="rk_live_' + 'aaaaaaaaaaaaaaaaaaaaaaaa";' },
-	{ id: 'MCP01-NPM', positive: 'const t="ntest_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";' },
-	{ id: 'MCP01-GITLAB', positive: 'const t="gltest-aBcDeFgHiJkLmNoPqRsT";' },
+	{ id: 'MCP01-NPM', positive: 'const t="npm_' + 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";' },
+	{ id: 'MCP01-GITLAB', positive: 'const t="glpat-' + 'aBcDeFgHiJkLmNoPqRsT";' },
 	{
 		id: 'MCP01-JWT',
 		positive:
-			'auth = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.FAKE_SIGNATURE_TEST_ONLY_adQssw5c"',
+			'auth = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + 'eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"',
 	},
 	{ id: 'MCP01-AZURE', positive: `AccountKey=${'A'.repeat(80)};` },
 	{
 		id: 'MCP01-SENDGRID',
-		positive: 'const k="SGTEST.AAAAAAAAAAAAAAAAAAAAA.BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";',
+		positive: 'const k="SG.' + 'AAAAAAAAAAAAAAAAAAAAA.BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";',
 	},
-	{ id: 'MCP01-MAILGUN', positive: 'const k="ktest-abcdef0123456789abcdef0123456789";' },
+	{ id: 'MCP01-MAILGUN', positive: 'const k="key-' + 'abcdef0123456789abcdef0123456789";' },
 	{ id: 'MCP01-TWILIO-SID', positive: 'const sid="AC0123456789' + 'abcdef0123456789abcdef";' },
 	{ id: 'MCP01-TWILIO-AUTH', positive: 'const t="SK0123456789' + 'abcdef0123456789abcdef";' },
 	{
 		id: 'MCP01-DIGITALOCEAN',
 		positive: `const t = "dop_v1_${'a'.repeat(64)}";`,
 	},
-	{ id: 'MCP01-NEWRELIC', positive: 'const k="NRTEST-ABCDEFGHIJKLMNOPQRSTUVWXY12";' },
+	{ id: 'MCP01-NEWRELIC', positive: 'const k="NRAK-' + 'ABCDEFGHIJKLMNOPQRSTUVWXY12";' },
 	{
 		id: 'MCP01-POSTMAN',
 		positive: `const k="PMAK-${'a'.repeat(24)}-${'b'.repeat(34)}";`,
 	},
 	{
 		id: 'MCP01-SENTRY',
-		positive: 'dsn = "https://abcdef0123456789abcdef0123456789@o12345.FAKE.sentry.io/12345"',
+		positive:
+			'dsn = "https://abcdef0123456789abcdef0123456789@' + 'o12345.ingest.sentry.io/12345"',
 	},
-	{ id: 'MCP01-SHOPIFY', positive: 'const t="shtest_abcdef0123456789abcdef0123456789";' },
+	{ id: 'MCP01-SHOPIFY', positive: 'const t="shpat_' + 'abcdef0123456789abcdef0123456789";' },
 	{ id: 'MCP01-MAPBOX', positive: `const k="sk.eyJ1${'a'.repeat(70)}";` },
 	{ id: 'MCP01-ATLASSIAN', positive: `const t="ATATT3x${'A'.repeat(185)}";` },
 	{ id: 'MCP01-NOTION', positive: `const t="secret_${'a'.repeat(43)}";` },
