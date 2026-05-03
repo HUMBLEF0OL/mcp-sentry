@@ -1,7 +1,7 @@
 {
 	"framework": "astro",
-	"buildCommand": "pnpm --filter @mcp-sentry/web build",
+	"buildCommand": "pnpm build",
 	"installCommand": "pnpm install --frozen-lockfile",
-	"outputDirectory": "apps/web/dist",
+	"outputDirectory": "dist",
 	"ignoreCommand": "BASE=${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}; git rev-parse --verify \"$BASE\" >/dev/null 2>&1 || exit 1; git diff --quiet \"$BASE\" HEAD -- ':(top)apps/web' ':(top)packages/cli/src/checks' ':(top)pnpm-lock.yaml'"
 }
