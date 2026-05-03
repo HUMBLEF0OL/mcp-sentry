@@ -67,7 +67,10 @@ const CASES: PatternCase[] = [
 		id: 'MCP01-GH-PAT',
 		positive: 'const t="github_pat_' + '11AAAAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";',
 	},
-	{ id: 'MCP01-GH-CLASSIC', positive: 'const t = "ghp_' + '1234567890abcdefghijklmnopqrstuvwxAB";' },
+	{
+		id: 'MCP01-GH-CLASSIC',
+		positive: 'const t = "ghp_' + '1234567890abcdefghijklmnopqrstuvwxAB";',
+	},
 	{ id: 'MCP01-GOOGLE', positive: 'const k="AIza' + 'SyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI";' },
 	{ id: 'MCP01-GCP-OAUTH', positive: 'secret = GOCSPX-' + 'Bu5Lp7HTvYCAbcDefGhIjKlMnOpQ' },
 	{ id: 'MCP01-SLACK', positive: 'const t="xoxb-' + '1234567890-abcdefghij";' },
@@ -82,7 +85,8 @@ const CASES: PatternCase[] = [
 	{
 		id: 'MCP01-JWT',
 		positive:
-			'auth = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' + 'eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"',
+			'auth = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
+			'eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"',
 	},
 	{ id: 'MCP01-AZURE', positive: `AccountKey=${'A'.repeat(80)};` },
 	{
@@ -103,8 +107,7 @@ const CASES: PatternCase[] = [
 	},
 	{
 		id: 'MCP01-SENTRY',
-		positive:
-			'dsn = "https://abcdef0123456789abcdef0123456789@' + 'o12345.ingest.sentry.io/12345"',
+		positive: 'dsn = "https://abcdef0123456789abcdef0123456789@' + 'o12345.ingest.sentry.io/12345"',
 	},
 	{ id: 'MCP01-SHOPIFY', positive: 'const t="shpat_' + 'abcdef0123456789abcdef0123456789";' },
 	{ id: 'MCP01-MAPBOX', positive: `const k="sk.eyJ1${'a'.repeat(70)}";` },
