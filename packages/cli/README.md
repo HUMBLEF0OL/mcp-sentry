@@ -306,24 +306,32 @@ mcp-sentry scan . --report
 
 **Note:** The badge reflects the most recent reported scan. For enforcement, use `--fail-on` in CI/CD.
 
-## Programmatic Usage
+## API
 
-### ESM
+`mcp-sentry` is primarily a **CLI tool**. For programmatic automation, use the CLI through npm scripts or GitHub Actions.
 
-```typescript
-import { scan, grade } from 'mcp-sentry';
+### Use via npm scripts
 
-const results = await scan('./my-server');
-console.log(`Grade: ${grade(results.findings)}`);
+```json
+{
+  "scripts": {
+    "scan": "mcp-sentry scan . --format json > report.json"
+  }
+}
 ```
 
-### CommonJS
+Then parse `report.json` in your tools/scripts.
+
+### Use via child_process (Node.js)
 
 ```javascript
-const { scan, grade } = require('mcp-sentry');
+const { execSync } = require('child_process');
 
-const results = await scan('./my-server');
-console.log(`Grade: ${grade(results.findings)}`);
+const report = JSON.parse(
+  execSync('mcp-sentry scan . --format json', { encoding: 'utf-8' })
+);
+
+console.log(`Security Grade: ${report.grade}`);
 ```
 
 ## Troubleshooting
@@ -358,7 +366,7 @@ Times are measured on Ubuntu CI runners (GitHub Actions). Local performance vari
 
 ## Contributing
 
-Contributions welcome! See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
+Contributions welcome! See the [main repository](https://github.com/HUMBLEF0OL/mcp-sentry) for contribution guidelines.
 
 ## License
 
@@ -369,7 +377,7 @@ MIT – See [LICENSE](../../LICENSE)
 - **Documentation**: https://mcp-sentry.dev
 - **OWASP MCP Security**: https://owasp.org/www-project-model-context-protocol/
 - **Report Issues**: https://github.com/HUMBLEF0OL/mcp-sentry/issues
-- **Security**: https://github.com/HUMBLEF0OL/mcp-sentry/security/advisories
+- **Security Advisories**: https://github.com/HUMBLEF0OL/mcp-sentry/security/advisories
 
 ---
 
