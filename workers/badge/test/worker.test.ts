@@ -1,26 +1,34 @@
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type Unstable_DevWorker, unstable_dev } from 'wrangler';
 
 const SCRIPT = fileURLToPath(new URL('../src/index.ts', import.meta.url));
 const CONFIG = fileURLToPath(new URL('../wrangler.toml', import.meta.url));
+const PACKAGE_JSON = fileURLToPath(new URL('../package.json', import.meta.url));
 
 let worker: Unstable_DevWorker;
 
 let testOwner: string;
 let counter = 0;
 
-beforeEach(async () => {
-	counter++;
-	testOwner = `acme-${process.pid}-${counter}`;
-	worker = await unstable_dev(SCRIPT, {
+async function startWorker(opts: { hmacSecret?: string } = {}): Promise<Unstable_DevWorker> {
+	return unstable_dev(SCRIPT, {
 		config: CONFIG,
 		experimental: { disableExperimentalWarning: true },
 		local: true,
 		// Override the [FILL] KV id from wrangler.toml so tests are hermetic
 		// and never touch a real Cloudflare account.
 		kv: [{ binding: 'MCP_SENTRY_BADGES', id: 'test-badges' }],
+		// v1.1 DO binding: Miniflare auto-instantiates from wrangler.toml.
+		vars: opts.hmacSecret ? { BADGE_HMAC_SECRET: opts.hmacSecret } : undefined,
 	});
+}
+
+beforeEach(async () => {
+	counter++;
+	testOwner = `acme-${process.pid}-${counter}`;
+	worker = await startWorker();
 });
 
 afterEach(async () => {
@@ -61,7 +69,8 @@ describe('GET /health', () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { status: string; version: string };
 		expect(body.status).toBe('ok');
-		expect(typeof body.version).toBe('string');
+		const pkg = JSON.parse(await readFile(PACKAGE_JSON, 'utf8')) as { version: string };
+		expect(body.version).toBe(pkg.version);
 		expect(res.headers.get('content-security-policy')).toBe("default-src 'none'");
 	});
 });
@@ -159,7 +168,22 @@ describe('rate limiting', () => {
 		}
 		const res = await post(payload);
 		expect(res.status).toBe(429);
-		expect(res.headers.get('retry-after')).toBeTruthy();
+		const retry = Number(res.headers.get('retry-after'));
+		expect(Number.isFinite(retry)).toBe(true);
+		expect(retry).toBeGreaterThan(0);
+		expect(retry).toBeLessThanOrEqual(3600);
+	});
+
+	it('isolates counters per owner/repo key', async () => {
+		const ownerA = `rl-a-${process.pid}-${Date.now()}`;
+		const ownerB = `rl-b-${process.pid}-${Date.now()}`;
+		for (let i = 0; i < 10; i++) {
+			expect((await post(valid({ owner: ownerA }))).status).toBe(200);
+		}
+		expect((await post(valid({ owner: ownerA }))).status).toBe(429);
+		// Different owner should still be allowed because it maps to a
+		// different Durable Object idFromName key.
+		expect((await post(valid({ owner: ownerB }))).status).toBe(200);
 	});
 });
 
@@ -167,5 +191,66 @@ describe('routing', () => {
 	it('returns 404 for unknown paths', async () => {
 		const res = await get('/unknown');
 		expect(res.status).toBe(404);
+	});
+});
+
+describe('HMAC signing (v1.1 soft-launch)', () => {
+	const SECRET = 'topsecret';
+
+	async function hmacHex(secret: string, body: string): Promise<string> {
+		const { createHmac } = await import('node:crypto');
+		return createHmac('sha256', secret).update(body, 'utf8').digest('hex');
+	}
+
+	it('accepts unsigned requests when secret is configured (soft-launch)', async () => {
+		await worker.stop();
+		worker = await startWorker({ hmacSecret: SECRET });
+		const res = await post(valid({ owner: `hmac-soft-${counter}` }));
+		expect(res.status).toBe(200);
+	});
+
+	it('accepts a correctly-signed request', async () => {
+		await worker.stop();
+		worker = await startWorker({ hmacSecret: SECRET });
+		const payload = valid({ owner: `hmac-ok-${counter}` });
+		const body = JSON.stringify(payload);
+		const sig = `sha256=${await hmacHex(SECRET, body)}`;
+		const res = (await worker.fetch('/api/report', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', 'x-mcp-sentry-signature': sig },
+			body,
+		})) as unknown as Response;
+		expect(res.status).toBe(200);
+	});
+
+	it('rejects a tampered signature with 401', async () => {
+		await worker.stop();
+		worker = await startWorker({ hmacSecret: SECRET });
+		const payload = valid({ owner: `hmac-bad-${counter}` });
+		const body = JSON.stringify(payload);
+		const res = (await worker.fetch('/api/report', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				'x-mcp-sentry-signature': `sha256=${'0'.repeat(64)}`,
+			},
+			body,
+		})) as unknown as Response;
+		expect(res.status).toBe(401);
+	});
+
+	it('ignores signature header entirely when no secret is configured', async () => {
+		// `worker` was started without a secret in beforeEach.
+		const payload = valid({ owner: `hmac-none-${counter}` });
+		const body = JSON.stringify(payload);
+		const res = (await worker.fetch('/api/report', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+				'x-mcp-sentry-signature': `sha256=${'f'.repeat(64)}`,
+			},
+			body,
+		})) as unknown as Response;
+		expect(res.status).toBe(200);
 	});
 });

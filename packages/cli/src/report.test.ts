@@ -4,8 +4,10 @@ import {
 	DEFAULT_BADGE_ENDPOINT,
 	MAX_PAYLOAD_BYTES,
 	ReportError,
+	SIGNATURE_HEADER,
 	buildReportPayload,
 	postReport,
+	signBody,
 } from './report.js';
 import type { CheckResult, ScanOptions } from './types.js';
 
@@ -116,5 +118,63 @@ describe('postReport', () => {
 				stub as unknown as typeof fetch,
 			),
 		).rejects.toThrow(/429/);
+	});
+});
+
+describe('HMAC signing (v1.1 soft-launch)', () => {
+	const PAYLOAD = {
+		owner: 'acme',
+		repo: 'srv',
+		grade: 'A' as const,
+		critical: 0,
+		high: 0,
+		medium: 0,
+		low: 0,
+		version: '1.1.0',
+	};
+
+	it('signBody returns sha256=<hex> when secret is provided', () => {
+		const sig = signBody('hello', 'secret');
+		expect(sig).toMatch(/^sha256=[0-9a-f]{64}$/);
+	});
+
+	it('signBody returns undefined when no secret', () => {
+		expect(signBody('hello', '')).toBeUndefined();
+		expect(signBody('hello', undefined)).toBeUndefined();
+	});
+
+	it('postReport adds signature header when MCP_SENTRY_SECRET is set', async () => {
+		const stub = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
+		const prev = process.env.MCP_SENTRY_SECRET;
+		process.env.MCP_SENTRY_SECRET = 'topsecret';
+		try {
+			await postReport(PAYLOAD, DEFAULT_BADGE_ENDPOINT, stub as unknown as typeof fetch);
+		} finally {
+			// biome-ignore lint/performance/noDelete: must actually unset env var; assigning undefined coerces to string "undefined" in Node
+			if (prev === undefined) delete process.env.MCP_SENTRY_SECRET;
+			else process.env.MCP_SENTRY_SECRET = prev;
+		}
+		const call = stub.mock.calls[0];
+		if (!call) throw new Error('expected fetch to be called');
+		const init = call[1] as RequestInit;
+		const headers = init.headers as Record<string, string>;
+		expect(headers[SIGNATURE_HEADER]).toMatch(/^sha256=[0-9a-f]{64}$/);
+	});
+
+	it('postReport omits signature header when MCP_SENTRY_SECRET is unset', async () => {
+		const stub = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
+		const prev = process.env.MCP_SENTRY_SECRET;
+		// biome-ignore lint/performance/noDelete: must actually unset env var; assigning undefined coerces to string "undefined" in Node
+		delete process.env.MCP_SENTRY_SECRET;
+		try {
+			await postReport(PAYLOAD, DEFAULT_BADGE_ENDPOINT, stub as unknown as typeof fetch);
+		} finally {
+			if (prev !== undefined) process.env.MCP_SENTRY_SECRET = prev;
+		}
+		const call = stub.mock.calls[0];
+		if (!call) throw new Error('expected fetch to be called');
+		const init = call[1] as RequestInit;
+		const headers = init.headers as Record<string, string>;
+		expect(headers[SIGNATURE_HEADER]).toBeUndefined();
 	});
 });

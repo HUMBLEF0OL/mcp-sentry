@@ -260,19 +260,278 @@ function detectSinks(
 	return results;
 }
 
+/**
+ * Local-function index for inter-procedural taint tracking (v1.1).
+ * Maps the identifier name → the function-like node (FunctionDeclaration,
+ * FunctionExpression, or ArrowFunction) and its positional parameter names.
+ * Only same-file functions are considered; project-wide resolution would
+ * require full ts-morph type analysis and is out of scope.
+ */
+interface LocalFunction {
+	key: string;
+	name: string;
+	declaration: Node;
+	node: Node;
+	params: string[];
+	scope: Node;
+	isHoisted: boolean;
+}
+
+interface LocalFunctionIndex {
+	localsByName: Map<string, LocalFunction[]>;
+	locals: Map<string, LocalFunction>;
+}
+
+function localFunctionKey(node: Node): string {
+	const sourceFile = node.getSourceFile().getFilePath();
+	return `${sourceFile}:${node.getStart()}`;
+}
+
+function getLexicalScope(node: Node): Node {
+	return (
+		node.getFirstAncestor((ancestor) => Node.isBlock(ancestor) || Node.isSourceFile(ancestor)) ??
+		node.getSourceFile()
+	);
+}
+
+function collectLocalFunctions(file: SourceFile): LocalFunctionIndex {
+	const locals = new Map<string, LocalFunction>();
+	const localsByName = new Map<string, LocalFunction[]>();
+	const addLocal = (
+		name: string,
+		declaration: Node,
+		fnNode: Node,
+		params: string[],
+		isHoisted: boolean,
+	): void => {
+		const local: LocalFunction = {
+			key: localFunctionKey(declaration),
+			name,
+			declaration,
+			node: fnNode,
+			params,
+			scope: getLexicalScope(declaration),
+			isHoisted,
+		};
+		locals.set(local.key, local);
+		const existing = localsByName.get(name);
+		if (existing) existing.push(local);
+		else localsByName.set(name, [local]);
+	};
+
+	// Top-level + nested function declarations.
+	for (const fn of file.getDescendantsOfKind(SyntaxKind.FunctionDeclaration)) {
+		const name = fn.getName();
+		if (!name) continue;
+		const params: string[] = [];
+		for (const p of fn.getParameters()) collectBindingNames(p.getNameNode(), params);
+		addLocal(name, fn, fn, params, true);
+	}
+	// `const foo = (...) => …` / `const foo = function (…) {}`.
+	for (const v of file.getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
+		const init = v.getInitializer();
+		if (!init) continue;
+		if (!(Node.isArrowFunction(init) || Node.isFunctionExpression(init))) continue;
+		const nameNode = v.getNameNode();
+		if (!Node.isIdentifier(nameNode)) continue;
+		const name = nameNode.getText();
+		const params: string[] = [];
+		for (const p of init.getParameters()) collectBindingNames(p.getNameNode(), params);
+		addLocal(name, v, init, params, false);
+	}
+	return { localsByName, locals };
+}
+
+function resolveLexicallyVisibleLocalFunction(
+	localsByName: Map<string, LocalFunction[]>,
+	callee: Node,
+): LocalFunction | undefined {
+	if (!Node.isIdentifier(callee)) return undefined;
+	const candidates = localsByName.get(callee.getText());
+	if (!candidates || candidates.length === 0) return undefined;
+	const callStart = callee.getStart();
+	const visible = candidates.filter((candidate) => {
+		const scopeStart = candidate.scope.getStart();
+		const scopeEnd = candidate.scope.getEnd();
+		if (callStart < scopeStart || callStart > scopeEnd) return false;
+		if (candidate.isHoisted) return true;
+		return candidate.declaration.getStart() <= callStart;
+	});
+	if (visible.length === 0) return undefined;
+	visible.sort((left, right) => {
+		const scopeDelta = right.scope.getStart() - left.scope.getStart();
+		if (scopeDelta !== 0) return scopeDelta;
+		return right.declaration.getStart() - left.declaration.getStart();
+	});
+	const best = visible[0];
+	if (!best) return undefined;
+	const sameScopeMatches = visible.filter(
+		(candidate) =>
+			candidate.scope.getStart() === best.scope.getStart() &&
+			candidate.scope.getEnd() === best.scope.getEnd(),
+	);
+	if (sameScopeMatches.length > 1) return undefined;
+	return best;
+}
+
+function resolveLocalFunction(
+	locals: Map<string, LocalFunction>,
+	localsByName: Map<string, LocalFunction[]>,
+	callee: Node,
+): LocalFunction | undefined {
+	if (!Node.isIdentifier(callee)) return undefined;
+	const symbol = callee.getSymbol();
+	if (symbol) {
+		for (const decl of symbol.getDeclarations()) {
+			const local = locals.get(localFunctionKey(decl));
+			if (local) return local;
+		}
+	}
+	for (const def of callee.getDefinitions()) {
+		const decl = def.getDeclarationNode();
+		if (!decl) continue;
+		const local = locals.get(localFunctionKey(decl));
+		if (local) return local;
+	}
+	return resolveLexicallyVisibleLocalFunction(localsByName, callee);
+}
+
+/**
+ * Walk a (callee, taintedParams) work item: compute the callee's tainted
+ * variable set, detect direct sinks, and enqueue any further calls to
+ * local helpers whose arguments include tainted expressions.
+ */
+function analyseCallee(
+	calleeFn: LocalFunction,
+	seedParamNames: string[],
+	file: SourceFile,
+	fsBareImports: Set<string>,
+	locals: Map<string, LocalFunction>,
+	localsByName: Map<string, LocalFunction[]>,
+	visited: Set<string>,
+	depth: number,
+	maxDepth: number,
+	onDepthLimit: () => void,
+): CheckResult[] {
+	if (depth > maxDepth) {
+		onDepthLimit();
+		return [];
+	}
+	const tainted = collectTaintedNames(calleeFn.node, seedParamNames);
+	const out: CheckResult[] = detectSinks(calleeFn.node, tainted, file, fsBareImports);
+
+	if (!('getDescendantsOfKind' in calleeFn.node)) return out;
+	const calls = (calleeFn.node as SourceFile).getDescendantsOfKind(SyntaxKind.CallExpression);
+	for (const call of calls) {
+		const callee = call.getExpression();
+		if (!Node.isIdentifier(callee)) continue;
+		const local = resolveLocalFunction(locals, localsByName, callee);
+		if (!local) continue;
+		if (local.key === calleeFn.key) continue; // self-recursion: skip
+		const args = call.getArguments();
+		const seeds: string[] = [];
+		for (let i = 0; i < args.length && i < local.params.length; i++) {
+			const arg = args[i];
+			const param = local.params[i];
+			if (!arg || !param) continue;
+			if (expressionReferencesTainted(arg, tainted)) seeds.push(param);
+		}
+		if (seeds.length === 0) continue;
+		const key = `${local.key}#${seeds.slice().sort().join(',')}`;
+		if (visited.has(key)) continue;
+		visited.add(key);
+		out.push(
+			...analyseCallee(
+				local,
+				seeds,
+				file,
+				fsBareImports,
+				locals,
+				localsByName,
+				visited,
+				depth + 1,
+				maxDepth,
+				onDepthLimit,
+			),
+		);
+	}
+	return out;
+}
+
+const MAX_INTERPROC_DEPTH = 5;
+
 const run: CheckFn = async (
 	_project: Project,
 	files: SourceFile[],
 	_opts: ScanOptions,
 ): Promise<CheckResult[]> => {
 	const all: CheckResult[] = [];
+	let depthWarned = false;
+	const warnDepthLimit = (): void => {
+		if (depthWarned) return;
+		depthWarned = true;
+		process.stderr.write(
+			`mcp-sentry: MCP05 inter-procedural analysis hit depth limit (${MAX_INTERPROC_DEPTH}); deeper call chains may be partially analyzed\n`,
+		);
+	};
 	for (const file of files) {
 		const fsBareImports = collectFsBareImports(file);
 		const handlers = findToolHandlers(file);
+		const { locals, localsByName } = collectLocalFunctions(file);
 		for (const { handler, paramNames } of handlers) {
 			if (paramNames.length === 0) continue;
+			const handlerFindings: CheckResult[] = [];
 			const tainted = collectTaintedNames(handler, paramNames);
-			all.push(...detectSinks(handler, tainted, file, fsBareImports));
+			handlerFindings.push(...detectSinks(handler, tainted, file, fsBareImports));
+
+			// Inter-procedural pass: walk calls to local helpers from the
+			// handler and follow taint into them. Visited keyed by
+			// (functionName, sortedSeedParams) so we never analyse the same
+			// (callee, taint-shape) twice within one handler.
+			const visited = new Set<string>();
+			if (!('getDescendantsOfKind' in handler)) continue;
+			const calls = (handler as SourceFile).getDescendantsOfKind(SyntaxKind.CallExpression);
+			for (const call of calls) {
+				const callee = call.getExpression();
+				if (!Node.isIdentifier(callee)) continue;
+				const local = resolveLocalFunction(locals, localsByName, callee);
+				if (!local) continue;
+				const args = call.getArguments();
+				const seeds: string[] = [];
+				for (let i = 0; i < args.length && i < local.params.length; i++) {
+					const arg = args[i];
+					const param = local.params[i];
+					if (!arg || !param) continue;
+					if (expressionReferencesTainted(arg, tainted)) seeds.push(param);
+				}
+				if (seeds.length === 0) continue;
+				const key = `${local.key}#${seeds.slice().sort().join(',')}`;
+				if (visited.has(key)) continue;
+				visited.add(key);
+				handlerFindings.push(
+					...analyseCallee(
+						local,
+						seeds,
+						file,
+						fsBareImports,
+						locals,
+						localsByName,
+						visited,
+						1,
+						MAX_INTERPROC_DEPTH,
+						warnDepthLimit,
+					),
+				);
+			}
+			// Deduplicate only within one handler to preserve context when
+			// multiple handlers reach the same sink line.
+			const seenInHandler = new Set<string>();
+			for (const f of handlerFindings) {
+				const k = `${f.checkId}@${f.file}:${f.line}:${f.column}`;
+				if (seenInHandler.has(k)) continue;
+				seenInHandler.add(k);
+				all.push(f);
+			}
 		}
 	}
 	return all;

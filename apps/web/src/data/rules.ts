@@ -1,7 +1,6 @@
 /**
  * Static rule registry for the docs site. Mirrors the active checks shipped
- * by `packages/cli` for v1.0 (MCP01–MCP05, MCP07, MCP08). MCP06 is listed
- * with status `deferred-v1.1` and intentionally has no rule page.
+ * by `packages/cli` for v1.1 (MCP01–MCP08).
  */
 
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
@@ -16,7 +15,7 @@ export interface Rule {
 	examplesGood: string;
 	fix: string;
 	references: { label: string; href: string }[];
-	status: 'active' | 'deferred-v1.1';
+	status: 'active';
 }
 
 export const RULES: Rule[] = [
@@ -107,7 +106,7 @@ server.tool('mcp_acme_read', {
 		summary:
 			'Tool input parameters flow into child_process exec/spawn or filesystem paths without sanitisation.',
 		detection:
-			'Intra-function AST taint trace from tool handler parameters to child_process.exec/spawn/execSync/spawnSync and unsanitised fs.* path arguments.',
+			'AST taint trace from tool handler parameters to child_process.exec/spawn/execSync/spawnSync and unsanitised fs.* path arguments, with bounded same-file inter-procedural traversal through local helper functions. Conservative limits apply (depth cap; ambiguous same-name helpers are skipped).',
 		examplesBad: `// BAD — input concatenated into a shell command
 server.tool('run', async ({ cmd }) => exec(\`ls \${cmd}\`));`,
 		examplesGood: `// GOOD — execFile with array args, no shell
@@ -124,16 +123,28 @@ server.tool('run', async ({ cmd }) => {
 	{
 		id: 'MCP06',
 		title: 'Intent Subversion',
-		severities: [],
-		summary: 'Detection of tools that subvert user intent or chain into unintended actions.',
-		detection: 'Deferred to v1.1.',
-		examplesBad: '',
-		examplesGood: '',
-		fix: '',
+		severities: ['high', 'medium'],
+		summary:
+			'Tools whose advertised intent (name/description) does not match their actual side effects, or whose description is missing / trivially short.',
+		detection:
+			'AST scan of `server.tool` / `.registerTool` / `setRequestHandler` declarations: flags read-only-named tools (`get_*`, `list_*`, `read_*`, `fetch_*`, …) whose handlers invoke fs write/delete or child_process exec/spawn (MCP06-001, High); flags missing or sub-10-character descriptions (MCP06-002, Medium).',
+		examplesBad: `// BAD — name advertises read-only intent, handler mutates state
+server.tool('get_user', { description: 'Returns the user.' }, async ({ id, data }) => {
+    await writeFile('/tmp/u-' + id, data);
+});`,
+		examplesGood: `// GOOD — name and description honestly reflect side effects
+server.tool(
+    'save_user',
+    { description: 'Persists the user record to disk and returns the saved id.' },
+    async ({ id, data }) => {
+        await writeFile('/tmp/u-' + id, data);
+    },
+);`,
+		fix: 'Either rename / rephrase the tool to reflect its actual behaviour, or remove the side-effecting call. Always provide a static description of at least 10 chars.',
 		references: [
 			{ label: 'OWASP MCP Top 10 — MCP06', href: 'https://owasp.org/www-project-mcp-top-10/' },
 		],
-		status: 'deferred-v1.1',
+		status: 'active',
 	},
 	{
 		id: 'MCP07',

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Title | mcp-sentry — Implementation Plan |
-| Version | v1.0 |
+| Version | v1.1 |
 | Derived From | Technical Specification Document v1.2 |
 | Status | Draft |
 | Date | May 2, 2026 |
@@ -21,22 +21,22 @@
   - [Phase 2 — Core Checks](#phase-2--core-checks-week-2)
   - [Phase 3 — Completion](#phase-3--completion-week-3)
   - [Phase 4 — Ecosystem](#phase-4--ecosystem-week-4)
-  - [Phase 5+ — v1.1 Roadmap](#phase-5--v11-roadmap-post-launch)
+      - [Phase 5+ — Post-v1.1 Backlog](#phase-5--post-v11-backlog)
 - [5. Per-Check Work Breakdown (MCP01–MCP08)](#5-per-check-work-breakdown-mcp01mcp08)
 - [6. Cross-Cutting Workstreams](#6-cross-cutting-workstreams)
 - [7. Testing Plan](#7-testing-plan)
 - [8. Build & Release Pipeline](#8-build--release-pipeline)
 - [9. Security Hardening Checklist](#9-security-hardening-checklist)
-- [10. Open Items / Deferred to v1.1](#10-open-items--deferred-to-v11)
+- [10. Open Items / Deferred to Future Releases](#10-open-items--deferred-to-future-releases)
   - [Tracked assumptions / monitoring](#tracked-assumptions--monitoring)
 - [11. Milestones & Exit Gates](#11-milestones--exit-gates)
-- [12. Definition of Done — v1.0 Launch](#12-definition-of-done--v10-launch)
+- [12. Definition of Done — v1.1 Release](#12-definition-of-done--v11-release)
 
 ---
 
 ## 1. Overview & Goals
 
-mcp-sentry is a static-analysis security linter for TypeScript MCP servers, distributed as an `npx`-runnable CLI plus a Cloudflare-hosted badge API, a GitHub Action, and an Astro docs site (TSD §1, §2). The goal of v1.0 is to ship a fast (<2s for 5–15 files), low-FP (<15%), cross-platform CLI that detects the OWASP MCP Top 10 categories MCP01–MCP05, MCP07, MCP08 (MCP06 deferred), grades the project A–F, and integrates with CI via SARIF, PR comments, and a public Shields.io badge.
+mcp-sentry is a static-analysis security linter for TypeScript MCP servers, distributed as an `npx`-runnable CLI plus a Cloudflare-hosted badge API, a GitHub Action, and an Astro docs site (TSD §1, §2). The current release objective is a fast (<2s for 5–15 files), low-FP (<15%), cross-platform CLI that detects OWASP MCP Top 10 categories MCP01–MCP08, grades the project A–F, and integrates with CI via SARIF, PR comments, and a public Shields.io badge.
 
 ## 2. Assumptions & Prerequisites
 
@@ -49,6 +49,12 @@ mcp-sentry is a static-analysis security linter for TypeScript MCP servers, dist
 - Repository secrets configured: `NPM_TOKEN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `VERCEL_TOKEN`.
 
 ## 3. Monorepo Bootstrapping
+
+Historical note: sections 3-9 are the original implementation checklist.
+Many boxes were never backfilled after the v1.1 release work landed, so do
+not treat unchecked items in those sections as the current shipped-state
+source of truth. Use [README.md](../README.md), section 10 below, and section
+12 below for current release status and remaining backlog.
 
 - [ ] Initialise repo with `pnpm init`; add root `package.json` with `"private": true` and `"packageManager": "pnpm@9.x"` (TSD §9).
 - [ ] Create `pnpm-workspace.yaml` covering `packages/*`, `apps/*`, `workers/*` (TSD §9).
@@ -71,26 +77,26 @@ mcp-sentry is a static-analysis security linter for TypeScript MCP servers, dist
 
 ### Phase 1 — Foundation (Week 1)
 
-**Goals:** Stand up the CLI scaffolding, file discovery, ts-morph project, the priority MCP05 check, and a stub for MCP06 so downstream registry code can iterate.
+**Goals:** Stand up the CLI scaffolding, file discovery, ts-morph project, the priority MCP05 check, and MCP06 intent-subversion coverage.
 
 **Tasks:**
 
 - [ ] Amend the existing `packages/cli/package.json` skeleton (created in §3) with `"bin": { "mcp-sentry": "dist/index.cjs" }`, `"main": "dist/index.cjs"`, `"module": "dist/index.mjs"`, `"types": "dist/index.d.ts"`, and a `build` script invoking `tsup` (TSD §9, §10.1).
 - [ ] Add `tsup.config.ts` outputting `dist/index.cjs`, `dist/index.mjs`, `dist/index.d.ts`, target `node20`, `shebang: true` (TSD §10.1).
 - [ ] Implement `src/index.ts` with Commander.js entry point; register `scan` and `checks` commands; use `.version()` for `-V` (TSD §2.2, §8.0).
-- [ ] Implement `checks` subcommand: print check registry (id, owaspId, severity range, description, status [`active`|`deferred-v1.1`]) to stdout. Inherits the global `--format text|json` option (declared on the root program, not on `scan`); default is `text` (TSD §2.2).
+- [ ] Implement `checks` subcommand: print check registry (id, owaspId, severity range, description, status) to stdout. Inherits the global `--format text|json` option (declared on the root program, not on `scan`); default is `text` (TSD §2.2).
 - [ ] Implement `src/types.ts` with `ScanOptions`, `CheckResult`, `CheckFn`, `GradeResult` (TSD §3.3, §4.2).
 - [ ] Implement `src/scanner.ts` `discoverFiles()` honoring excludes and `.mcp-sentry.ignore` via `ignore` package (TSD §3.1).
 - [ ] Initialise ts-morph `Project` with `skipAddingFilesFromTsConfig: true`, `allowJs`, `noEmit`; wrap `addSourceFileAtPath` in try/catch and emit warnings to stderr (TSD §3.2).
 - [ ] Track skipped files; surface count in all reporters (TSD §3.2).
 - [ ] Implement `src/checks/mcp05-injection.ts` — intra-function taint trace from tool input parameters to `child_process.exec/spawn/...` and unsanitised `fs.*` paths (TSD §3.4 MCP05).
-- [ ] Implement `src/checks/mcp06-intent.ts` stub: registered in the default check registry so the `checks` subcommand lists it with status `deferred-v1.1`; when invoked by `scanner.ts`, the stub returns an empty `CheckResult[]` AND emits a one-time stderr notice ("MCP06 intent-subversion check is deferred to v1.1"). It must NOT throw at scan time — throwing would abort the scan. Reserve `NotImplementedError` only for direct programmatic invocation outside the registry path. (Resolves TSD §2.2 vs. §15 ambiguity in favour of non-aborting behaviour.)
+- [x] Implement `src/checks/mcp06-intent.ts` active check: MCP06-001 (read-only-advertised intent + side-effecting sinks) and MCP06-002 (missing/trivially short description), with fixtures/tests for false-positive controls.
 - [ ] Build a `clean-server` and `injection-vuln` fixture under `packages/cli/fixtures/` (TSD §9).
 - [ ] Wire vitest with one test per fixture asserting the MCP05 finding shape on `injection-vuln`, AND asserting `clean-server` produces grade A with zero findings (TSD §11.4 test C).
 
 **Deliverables:** runnable `npx mcp-sentry scan ./fixtures/injection-vuln` returning a critical MCP05 finding; passing CI on Linux/macOS/Windows.
 
-**Exit criteria:** MCP05 detects exec() injection in fixture; MCP06 stub present and throws; no parse failures abort scans.
+**Exit criteria:** MCP05 detects exec() injection in fixture; MCP06 findings fire on intent-mismatch fixture patterns; no parse failures abort scans.
 
 **Risks:** ts-morph performance on first run; intra-function taint tracing complexity. Mitigate via small fixture and conservative matching.
 
@@ -188,21 +194,17 @@ mcp-sentry is a static-analysis security linter for TypeScript MCP servers, dist
 
 **Dependencies:** Phase 3 (CLI must be on npm before Action can `npx mcp-sentry@latest`).
 
-### Phase 5+ — v1.1 Roadmap (Post-launch)
+### Phase 5+ — Post-v1.1 Backlog
 
-**Goals:** Address known gaps and respond to community demand.
+**Goals:** Address remaining known gaps and respond to community demand.
 
 **Tasks:**
 
-- [ ] Implement full MCP06 intent-subversion check (TSD §2.2, §15).
-- [ ] Add cross-function / inter-procedural taint tracking for MCP05 (TSD §14 item 2).
-- [ ] Add HMAC-SHA256 signing on `POST /api/report` using GitHub-Secret-stored repo secret; Worker verifies (TSD §6.6).
-- [ ] Replace KV timestamp rate limit with Cloudflare Durable Objects atomic counter (TSD §6.5, §14 item 7).
 - [ ] Drive FP rate to <8% via corpus measurement (TSD §11.2).
 - [ ] Add Python MCP server support, pre-commit hook, VS Code extension (TSD §15).
 - [ ] Optimise scan to <1s for 5–15 files (TSD §12).
 
-**Exit criteria:** Community demand prioritised list; v1.1 release cut.
+**Exit criteria:** Community demand prioritised list; next release scope ratified.
 
 **Dependencies:** v1.0 launched and adopted.
 
@@ -214,8 +216,8 @@ mcp-sentry is a static-analysis security linter for TypeScript MCP servers, dist
 | MCP02 | `packages/cli/src/checks/mcp02-scope.ts` | AST (ts-morph) | High, Medium | `fixtures/full-vulns/` | `mcp02-scope.test.ts` | M | 2 |
 | MCP03 | `packages/cli/src/checks/mcp03-poisoning.ts` | AST + regex on description literals | High, Medium | `fixtures/full-vulns/` | `mcp03-poisoning.test.ts` | M | 2 |
 | MCP04 | `packages/cli/src/checks/mcp04-supply-chain.ts` | `package.json` parse + lockfile check + `child_process.spawn('npm audit --json')` | High, Medium | `fixtures/full-vulns/` | `mcp04-supply-chain.test.ts` | L | 2 |
-| MCP05 | `packages/cli/src/checks/mcp05-injection.ts` | AST taint trace (intra-function) | Critical | `fixtures/injection-vuln/` | `mcp05-injection.test.ts` | L | 1 |
-| MCP06 | `packages/cli/src/checks/mcp06-intent.ts` | Registry stub returning `[]` + stderr deferred-notice; full impl v1.1 | n/a (v1.0) | n/a | `mcp06-intent.test.ts` (asserts no findings, no throw, registry status `deferred-v1.1`) | S | 1 |
+| MCP05 | `packages/cli/src/checks/mcp05-injection.ts` | AST taint trace + bounded same-file inter-procedural helper traversal | Critical | `fixtures/injection-vuln/` | `mcp05-injection.test.ts` | L | 1 |
+| MCP06 | `packages/cli/src/checks/mcp06-intent.ts` | AST intent-vs-behaviour mismatch checks + description quality checks | High, Medium | `fixtures/full-vulns/` | `mcp06-intent.test.ts` | M | 1 |
 | MCP07 | `packages/cli/src/checks/mcp07-auth.ts` | AST pattern match for HTTP transport + missing auth | High | `fixtures/full-vulns/` + `fixtures/stdio-only/` (negative case) | `mcp07-auth.test.ts` | M | 3 |
 | MCP08 | `packages/cli/src/checks/mcp08-logging.ts` | AST structural inspection of tool handlers + catch blocks | Medium, Low | `fixtures/full-vulns/` | `mcp08-logging.test.ts` | M | 3 |
 
@@ -340,14 +342,29 @@ Mapped to TSD §13 and §6.6:
 - [ ] No third-party Actions with write permissions (TSD §13.3).
 - [ ] README badge documentation explicitly notes badge reflects last `--report` scan (TSD §6.6).
 
-## 10. Open Items / Deferred to v1.1
+## 10. Open Items / Deferred to Future Releases
 
-- [ ] Full MCP06 intent-subversion implementation (TSD §2.2, §15).
-- [ ] Cross-function / inter-procedural taint analysis for MCP05 (TSD §14 item 2).
-- [ ] HMAC-SHA256 signing on `POST /api/report` with GitHub-Secret-stored repo key (TSD §6.6).
-- [ ] Cloudflare Durable Objects to replace KV TOCTOU rate limiter (TSD §6.5, §14 item 7).
+**Update (v1.1 merged into v1.0):** items 1–4 below were pulled forward and
+shipped in v1.1 alongside the original v1.0 surface. The remaining items
+(FP rate hardening, Python frontend, pre-commit hook, VS Code extension,
+sub-1s perf goal) remain deferred.
+
+- [x] Full MCP06 intent-subversion implementation (TSD §2.2, §15) — shipped
+      v1.1: MCP06-001 (read-only-named tool with side-effecting handler) +
+      MCP06-002 (missing/trivial description).
+- [x] Cross-function / inter-procedural taint analysis for MCP05 (TSD §14
+      item 2) — shipped v1.1: bounded BFS over local-function call graph
+      with per-(callee, taint-shape) memoisation.
+- [x] HMAC-SHA256 signing on `POST /api/report` (TSD §6.6) — shipped v1.1:
+      CLI signs when `MCP_SENTRY_SECRET` env is set; Worker verifies when
+      `BADGE_HMAC_SECRET` secret is configured. Soft-launch contract:
+      unsigned requests still accepted so older CLIs keep working.
+- [x] Cloudflare Durable Objects to replace KV TOCTOU rate limiter
+      (TSD §6.5, §14 item 7) — shipped v1.1: `RateLimiter` DO class with
+      atomic per-instance fetch handler; alarm prunes stale timestamps.
 - [ ] Drive FP rate from <15% to <8% via expanded corpus (TSD §11.2).
 - [ ] Python MCP server support, pre-commit hook, VS Code extension (TSD §15).
+- [ ] Scan-time perf optimisation to <1s for 5–15 files.
 
 ### Tracked assumptions / monitoring
 
@@ -359,18 +376,18 @@ Mapped to TSD §13 and §6.6:
 
 | Milestone | Target | Exit Gate |
 | --- | --- | --- |
-| M1 — Foundation | End of Week 1 | `npx mcp-sentry scan ./fixtures/injection-vuln` flags MCP05 critical; MCP06 stub throws; CI green on 3 OSes (TSD §15) |
+| M1 — Foundation | End of Week 1 | `npx mcp-sentry scan ./fixtures/injection-vuln` flags MCP05 critical; MCP06 active checks integrated; CI green on 3 OSes (TSD §15) |
 | M2 — Core Checks | End of Week 2 | MCP01–MCP05 pass fixture suite; FP rate <15% on corpus subset (TSD §11.2, §15) |
-| M3 — Completion | End of Week 3 | All 7 active checks shipped; JSON/SARIF/Markdown reporters validated; v1.0.0 published to npm; E2E tests A/B/C green (TSD §11.4, §15) |
+| M3 — Completion | End of Week 3 | All 8 active checks shipped; JSON/SARIF/Markdown reporters validated; v1.1.0 published to npm; E2E tests A/B/C green (TSD §11.4, §15) |
 | M4 — Ecosystem | End of Week 4 | Worker live; GitHub Action installable from Marketplace; docs site deployed; Action smoke test posts PR comment for injection-vuln (TSD §11.4, §15) |
-| M5 — v1.1 Planning | Post-launch | Open items prioritised, MCP06 design ratified, HMAC + Durable Objects spec written (TSD §15) |
+| M5 — Post-v1.1 Planning | Post-launch | Open items prioritised and next release scope ratified (TSD §15) |
 
-## 12. Definition of Done — v1.0 Launch
+## 12. Definition of Done — v1.1 Release
 
-- [ ] `mcp-sentry@1.0.0` published to npm, runnable via `npx mcp-sentry@latest`.
+- [ ] `mcp-sentry@1.1.0` published to npm, runnable via `npx mcp-sentry@latest`.
 - [ ] CI green on Linux, macOS, Windows × Node 20 (TSD §10.2).
 - [ ] Bundle <5 MB installed (TSD §10.1, §12).
-- [ ] All 7 v1.0 checks (MCP01–MCP05, MCP07, MCP08) implemented; MCP06 stub present (TSD §15).
+- [ ] All 8 checks (MCP01–MCP08) implemented (TSD §15).
 - [ ] Text, JSON, SARIF, Markdown reporters working (TSD §5).
 - [ ] `--fail-on`, `--disable`, `--ignore`, `--report`, `--output/-o`, `--format/-f`, `-V` flags wired exactly per TSD §8.0.
 - [ ] `.mcp-sentry.json` and inline suppressions honored (TSD §8.1, §8.2).
@@ -380,5 +397,5 @@ Mapped to TSD §13 and §6.6:
 - [ ] Security hardening checklist (§9) fully checked off.
 - [ ] FP rate measured <15% on 20-repo corpus (TSD §11.2). Initial `corpus.txt` (20 entries) MUST be committed before the v1.0.0 tag is cut, since §7.3 only updates the corpus on minor/major releases.
 - [ ] Scan completes <2s on 5–15 file fixture in CI (TSD §11.3, §12).
-- [ ] README documents badge limitations and v1.1 deferred items (TSD §6.6, §10 of this plan).
+- [ ] README documents badge limitations and deferred future-release items (TSD §6.6, §10 of this plan).
 - [ ] GitHub Release created with auto-generated changelog (TSD §10.3).

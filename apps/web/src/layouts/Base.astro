@@ -33,6 +33,7 @@ const sidebarSections = [
 			{ href: '/rules/MCP03', label: 'MCP03 — Poisoning' },
 			{ href: '/rules/MCP04', label: 'MCP04 — Supply chain' },
 			{ href: '/rules/MCP05', label: 'MCP05 — Injection' },
+			{ href: '/rules/MCP06', label: 'MCP06 — Intent' },
 			{ href: '/rules/MCP07', label: 'MCP07 — Auth' },
 			{ href: '/rules/MCP08', label: 'MCP08 — Logging' },
 		],
@@ -370,7 +371,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 			<div class="site-header__inner">
 				<a class="brand bare" href="/">
 					<span class="brand__mark">A</span>
-					<span class="brand__name">mcp-sentry<span> /v1</span></span>
+					<span class="brand__name">mcp-sentry<span> /v1.1</span></span>
 				</a>
 				<nav class="site-nav" aria-label="Primary">
 					{
@@ -424,7 +425,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 
 		<footer class="site-footer">
 			<div class="site-footer__inner">
-				<span>MIT · OWASP MCP Top 10 · v1.0</span>
+				<span>MIT · OWASP MCP Top 10 · v1.1</span>
 				<span><a href={repoUrl} class="bare">github.com/HUMBLEF0OL/mcp-sentry</a></span>
 			</div>
 		</footer>

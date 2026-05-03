@@ -8,12 +8,23 @@ binding = "MCP_SENTRY_BADGES"
 id = "[FILL: KV namespace ID from Cloudflare dashboard]"
 preview_id = "[FILL: preview KV namespace ID]"
 
+# v1.1: Durable Object atomic rate limiter — replaces the v1.0 KV-timestamp
+# limiter (TSD §6.5, §14 item 7). Per-instance fetch handlers serialise so
+# the read-prune-decide-write sequence is atomic; eliminates TOCTOU race.
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RateLimiter"]
+
 # Route (set when custom domain is registered)
 # [[routes]]
 # pattern = "mcp-sentry.dev/api/*"
 # zone_name = "mcp-sentry.dev"
 
-# Secrets — set via: wrangler secret put BADGE_HMAC_SECRET (v1.1+)
+# Secrets — set via: wrangler secret put BADGE_HMAC_SECRET (v1.1)
 # [vars]  — no plaintext secrets; use wrangler secret for sensitive values
 
 [dev]

@@ -1,5 +1,5 @@
 /**
- * mcp-sentry badge API — Cloudflare Worker.
+ * mcp-sentry badge API — Cloudflare Worker (v1.1).
  *
  * Endpoints (TSD §6.1):
  *   POST /api/report             — write grade to KV
@@ -12,15 +12,26 @@
  *   - integer counts clamped to [0, 9999]
  *   - CSP default-src 'none' on every response
  *   - CORS * only on GET /api/badge
- *   - Rate limit: 10 POSTs per owner/repo per hour via KV timestamps
- *     (TOCTOU race accepted for v1.0 — see TSD §6.5)
+ *   - Rate limit: 10 POSTs per owner/repo per hour via a Durable Object
+ *     atomic counter (replaces the v1.0 KV-timestamp design which had a
+ *     documented TOCTOU race; see TSD §6.5).
+ *   - HMAC-SHA256 request signing (v1.1 soft-launch). When the
+ *     `BADGE_HMAC_SECRET` Worker secret is configured AND a request
+ *     carries `x-mcp-sentry-signature: sha256=<hex>`, the Worker verifies
+ *     the digest and rejects mismatches with 401. Unsigned requests are
+ *     still accepted during the soft-launch window so older CLIs continue
+ *     to function. With no secret configured, the signature header is
+ *     ignored entirely.
  */
 
 export interface Env {
 	MCP_SENTRY_BADGES: KVNamespace;
+	RATE_LIMITER: DurableObjectNamespace;
+	/** Optional v1.1 HMAC secret. Set via `wrangler secret put BADGE_HMAC_SECRET`. */
+	BADGE_HMAC_SECRET?: string;
 }
 
-const WORKER_VERSION = '1.0.0';
+const WORKER_VERSION = '1.1.0';
 
 const OWNER_REPO_RE = /^[a-zA-Z0-9_.-]+$/;
 const OWNER_REPO_MAX = 100;
@@ -36,6 +47,8 @@ const GRADE_COLOR: Record<Grade, string> = {
 
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+const SIGNATURE_HEADER = 'x-mcp-sentry-signature';
 
 const REPORT_FIELDS = new Set([
 	'owner',
@@ -60,7 +73,6 @@ interface ReportPayload {
 }
 
 interface BadgeRecord {
-	// Per TSD §6.4 — owner/repo are encoded in the KV key, not the value.
 	grade: Grade;
 	critical: number;
 	high: number;
@@ -162,55 +174,133 @@ function badgeKey(owner: string, repo: string): string {
 	return `${owner}/${repo}`;
 }
 
-function rateLimitKey(owner: string, repo: string): string {
-	return `rl:${owner}/${repo}`;
+/**
+ * Constant-time hex string comparison. The Workers runtime exposes
+ * `crypto.subtle` but not `crypto.timingSafeEqual`; this loop runs in
+ * O(n) time independent of where mismatches occur, eliminating timing
+ * side channels on signature comparison.
+ */
+function timingSafeEqualHex(a: string, b: string): boolean {
+	if (a.length !== b.length) return false;
+	let diff = 0;
+	for (let i = 0; i < a.length; i++) {
+		diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	}
+	return diff === 0;
+}
+
+const HEX = '0123456789abcdef';
+function bytesToHex(buf: ArrayBuffer): string {
+	const view = new Uint8Array(buf);
+	let out = '';
+	for (let i = 0; i < view.length; i++) {
+		const byte = view[i] as number;
+		out += HEX[byte >>> 4];
+		out += HEX[byte & 0x0f];
+	}
+	return out;
 }
 
 /**
- * KV-timestamp rate limiter (TSD §6.5). Stores recent POST timestamps as a
- * JSON array under `rl:{owner}/{repo}`, prunes entries older than the
- * window, and rejects when count >= RATE_LIMIT_MAX. Subject to a known
- * TOCTOU race under concurrent writers (accepted for v1.0).
+ * Verify the HMAC-SHA256 signature header against the raw request body
+ * using `BADGE_HMAC_SECRET`. Returns:
+ *   'no-secret'    — Worker has no secret configured; skip verification.
+ *   'no-signature' — request did not include the header; soft-launch accept.
+ *   'valid'        — signature matches.
+ *   'invalid'      — signature mismatched; caller should reject 401.
  */
-async function checkAndRecordRateLimit(
+async function verifySignature(
+	req: Request,
+	body: string,
+	env: Env,
+): Promise<'no-secret' | 'no-signature' | 'valid' | 'invalid'> {
+	const secret = env.BADGE_HMAC_SECRET;
+	if (!secret || secret.length === 0) return 'no-secret';
+	const header = req.headers.get(SIGNATURE_HEADER);
+	if (!header) return 'no-signature';
+	const m = /^sha256=([0-9a-fA-F]+)$/.exec(header);
+	if (!m || !m[1]) return 'invalid';
+	const provided = m[1].toLowerCase();
+	const key = await crypto.subtle.importKey(
+		'raw',
+		new TextEncoder().encode(secret),
+		{ name: 'HMAC', hash: 'SHA-256' },
+		false,
+		['sign'],
+	);
+	const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
+	const expected = bytesToHex(sig);
+	return timingSafeEqualHex(provided, expected) ? 'valid' : 'invalid';
+}
+
+/**
+ * Durable Object atomic rate limiter (v1.1, replaces v1.0 KV-timestamp
+ * counter). All POSTs for a given owner/repo route through a single DO
+ * instance keyed by `idFromName(owner/repo)`; per-instance fetch handlers
+ * execute serially so the read-prune-decide-write sequence is atomic and
+ * the v1.0 TOCTOU race no longer applies (TSD §6.5, §14 item 7).
+ */
+export class RateLimiter {
+	private state: DurableObjectState;
+
+	constructor(state: DurableObjectState) {
+		this.state = state;
+	}
+
+	async fetch(req: Request): Promise<Response> {
+		const url = new URL(req.url);
+		if (url.pathname !== '/check' || req.method !== 'POST') {
+			return new Response('not found', { status: 404 });
+		}
+		const { now } = (await req.json()) as { now: number };
+		const stored = (await this.state.storage.get<number[]>('timestamps')) ?? [];
+		const fresh = stored.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+		if (fresh.length >= RATE_LIMIT_MAX) {
+			const oldest = fresh[0] ?? now;
+			const retryAfterMs = RATE_LIMIT_WINDOW_MS - (now - oldest);
+			return new Response(
+				JSON.stringify({
+					allowed: false,
+					retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)),
+				}),
+				{ headers: { 'content-type': 'application/json' } },
+			);
+		}
+		fresh.push(now);
+		await this.state.storage.put('timestamps', fresh);
+		// Schedule alarm to drop entries when the window rolls; bounds storage.
+		await this.state.storage.setAlarm(now + RATE_LIMIT_WINDOW_MS + 1000);
+		return new Response(JSON.stringify({ allowed: true }), {
+			headers: { 'content-type': 'application/json' },
+		});
+	}
+
+	async alarm(): Promise<void> {
+		const stored = (await this.state.storage.get<number[]>('timestamps')) ?? [];
+		const now = Date.now();
+		const fresh = stored.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+		if (fresh.length === 0) {
+			await this.state.storage.delete('timestamps');
+		} else {
+			await this.state.storage.put('timestamps', fresh);
+		}
+	}
+}
+
+async function checkRateLimit(
 	env: Env,
 	owner: string,
 	repo: string,
 	now: number,
 ): Promise<{ allowed: boolean; retryAfterSeconds?: number }> {
-	const key = rateLimitKey(owner, repo);
-	const raw = await env.MCP_SENTRY_BADGES.get(key);
-	let timestamps: number[] = [];
-	if (raw) {
-		try {
-			const parsed = JSON.parse(raw);
-			if (Array.isArray(parsed)) {
-				timestamps = parsed.filter(
-					(n): n is number => typeof n === 'number' && now - n < RATE_LIMIT_WINDOW_MS,
-				);
-			}
-		} catch {
-			// corrupt entry — reset
-			timestamps = [];
-		}
-	}
-
-	if (timestamps.length >= RATE_LIMIT_MAX) {
-		const oldest = timestamps[0] ?? now;
-		const retryAfterMs = RATE_LIMIT_WINDOW_MS - (now - oldest);
-		return {
-			allowed: false,
-			retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)),
-		};
-	}
-
-	timestamps.push(now);
-	// KV expirationTtl is in seconds; round up to keep entries until window rolls.
-	await env.MCP_SENTRY_BADGES.put(key, JSON.stringify(timestamps), {
-		expirationTtl: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000),
+	const id = env.RATE_LIMITER.idFromName(`${owner}/${repo}`);
+	const stub = env.RATE_LIMITER.get(id);
+	const res = await stub.fetch('https://rate-limiter/check', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ now }),
 	});
-
-	return { allowed: true };
+	return (await res.json()) as { allowed: boolean; retryAfterSeconds?: number };
 }
 
 async function handleReport(req: Request, env: Env): Promise<Response> {
@@ -218,9 +308,19 @@ async function handleReport(req: Request, env: Env): Promise<Response> {
 	if (ct.split(';')[0]?.trim() !== 'application/json') {
 		return jsonResponse(415, { error: 'content-type must be application/json' });
 	}
+	// Read body as text first so HMAC verification runs against the exact
+	// byte sequence the client signed (JSON.stringify round-trips can
+	// drift on whitespace / key order).
+	const bodyText = await req.text();
+
+	const sigStatus = await verifySignature(req, bodyText, env);
+	if (sigStatus === 'invalid') {
+		return jsonResponse(401, { error: 'invalid signature' });
+	}
+
 	let body: unknown;
 	try {
-		body = await req.json();
+		body = JSON.parse(bodyText);
 	} catch {
 		return jsonResponse(400, { error: 'invalid JSON' });
 	}
@@ -231,7 +331,7 @@ async function handleReport(req: Request, env: Env): Promise<Response> {
 	const { payload } = validated;
 
 	const now = Date.now();
-	const limit = await checkAndRecordRateLimit(env, payload.owner, payload.repo, now);
+	const limit = await checkRateLimit(env, payload.owner, payload.repo, now);
 	if (!limit.allowed) {
 		return jsonResponse(
 			429,

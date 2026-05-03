@@ -25,13 +25,17 @@ process.on('unhandledRejection', (err) => {
     console.error('rejected', err);
 });
 
-server.tool('list', {}, async (input) => {
-    console.info('tool list invoked');
-    const safe = validate(input.binary);
-    return new Promise((resolve, reject) => {
-        execFile(safe, [], { timeout: 1000 }, (err, stdout) => {
-            if (err) reject(err);
-            else resolve(stdout);
+server.tool(
+    'run_allowed_binary',
+    { description: 'Executes one of the allow-listed binaries with no arguments and returns its stdout.' },
+    async (input) => {
+        console.info('tool run_allowed_binary invoked');
+        const safe = validate(input.binary);
+        return new Promise((resolve, reject) => {
+            execFile(safe, [], { timeout: 1000 }, (err, stdout) => {
+                if (err) reject(err);
+                else resolve(stdout);
+            });
         });
-    });
-});
+    },
+);

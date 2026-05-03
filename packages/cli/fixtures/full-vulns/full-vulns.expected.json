@@ -37,6 +37,11 @@
 			"severity": "critical"
 		},
 		{
+			"owaspId": "MCP06",
+			"checkId": "MCP06-001",
+			"severity": "high"
+		},
+		{
 			"owaspId": "MCP07",
 			"checkId": "MCP07-001",
 			"severity": "high"

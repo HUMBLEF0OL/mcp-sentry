@@ -82,8 +82,8 @@ The CLI follows a pipeline pattern: parse CLI args → discover files → run ch
 | checks/mcp02-scope.ts | AST scan for overly-broad Zod schemas and unbounded fs access patterns. |
 | checks/mcp03-poisoning.ts | AST + regex scan for hidden instructions in tool descriptions, name shadowing. |
 | checks/mcp04-supply-chain.ts | Reads package.json; spawns npm audit --json; checks lockfile presence and semver pins. |
-| checks/mcp05-injection.ts | AST taint-trace from tool input parameters to exec/spawn call arguments. |
-| checks/mcp06-intent.ts | STUB — v1.0 placeholder. Throws NotImplementedError. Full intent-subversion detection deferred to v1.1. |
+| checks/mcp05-injection.ts | AST taint-trace from tool input parameters to exec/spawn call arguments, with bounded same-file inter-procedural helper traversal in v1.1. |
+| checks/mcp06-intent.ts | Intent-subversion check. Detects read-only-advertised tool intent that contradicts side-effecting handler behavior, and missing/trivially short intent descriptions. |
 | checks/mcp07-auth.ts | AST scan for HTTP transport handlers missing bearer token / auth middleware. |
 | checks/mcp08-logging.ts | AST scan for missing tool invocation log calls and unguarded error propagation. |
 | grade.ts | Maps CheckResult[] to severity counts and computes letter grade (A–F). |
@@ -219,7 +219,7 @@ Implementation approach: AST taint analysis.
 
 - Separately, detect fs.readFile / fs.writeFile / fs.unlink calls where the path argument derives from tool input without path.resolve() + allowlist check — report as Critical (path traversal).
 
-- Use conservative matching: only flag when the data flow is clear within function scope. Cross-function taint is a v1.1 enhancement.
+- Use conservative matching: only flag when the data flow is clear within function scope. v1.1 extends this with bounded cross-function (same-file) taint traversal.
 
 ### **MCP07 — Insufficient Authentication**
 
@@ -342,11 +342,11 @@ Validation: All fields required. grade must be one of A/B/C/D/F. Counts must be 
 
 ## **6.5 Rate Limiting**
 
-- POST /api/report: 10 writes per owner/repo per hour (implemented via KV timestamp check). Reject with 429 if exceeded.
+- POST /api/report: 10 writes per owner/repo per hour (implemented via Durable Object atomic counter). Reject with 429 if exceeded.
 
 - GET /api/badge: No rate limit — relying on Cloudflare CDN + Shields.io caching.
 
-ℹ  *Known limitation: the KV timestamp check is subject to a TOCTOU (check-time/use-time) race under concurrent requests. Two simultaneous POST requests may both read a stale timestamp, both pass the rate-limit check, and both write. Cloudflare KV has no compare-and-swap primitive. This is acceptable for v1.0 given low expected write volume. For v1.1+, consider Cloudflare Durable Objects for atomic counters. Tracked in Open Questions §14 item 7.*
+ℹ  *v1.1 change: the KV timestamp limiter was replaced with a Durable Object atomic counter to avoid KV TOCTOU races under concurrent writes.*
 
 ## **6.6 Security**
 
@@ -460,7 +460,7 @@ Developers can suppress a specific finding on a line with a comment:
 
 # **9. Repository ****&**** Monorepo Structure**
 
-| mcp-sentry/                         ← pnpm workspace root ├── package.json                     ← workspace: ["packages/*","apps/*","workers/*"] ├── pnpm-workspace.yaml ├── pnpm-lock.yaml ├── biome.json                       ← linter / formatter config ├── .github/ │   ├── workflows/ │   │   ├── ci.yml                   ← lint, test, build on PR │   │   └── release.yml              ← publish to npm + deploy badge worker │   └── actions/                    ← (not used for the published Action — see §7) ├── packages/ │   ├── cli/ │   │   ├── package.json             ← name: mcp-sentry, bin: mcp-sentry │   │   ├── tsconfig.json │   │   ├── tsup.config.ts │   │   ├── src/ │   │   │   ├── index.ts │   │   │   ├── scanner.ts │   │   │   ├── grade.ts │   │   │   ├── reporter.ts │   │   │   ├── types.ts             ← shared interfaces (CheckResult, etc.) │   │   │   └── checks/ │   │   │       ├── mcp01-secrets.ts │   │   │       ├── mcp02-scope.ts │   │   │       ├── mcp03-poisoning.ts │   │   │       ├── mcp04-supply-chain.ts │   │   │       ├── mcp05-injection.ts │   │   │       ├── mcp06-intent.ts     ← stub; v1.1 full implementation │   │   │       ├── mcp07-auth.ts │   │   │       └── mcp08-logging.ts │   │   └── fixtures/ │   │       ├── clean-server/        ← should produce grade A │   │       ├── injection-vuln/      ← MCP05 fixture │   │       ├── secrets-exposed/     ← MCP01 fixture │   │       └── full-vulns/          ← all checks fire │   └── action/ │       ├── action.yml │       └── src/ │           └── main.ts ├── apps/ │   └── web/                         ← Astro site (docs + landing) └── workers/     └── badge/         ├── wrangler.toml         └── src/             └── index.ts |
+| mcp-sentry/                         ← pnpm workspace root ├── package.json                     ← workspace: ["packages/*","apps/*","workers/*"] ├── pnpm-workspace.yaml ├── pnpm-lock.yaml ├── biome.json                       ← linter / formatter config ├── .github/ │   ├── workflows/ │   │   ├── ci.yml                   ← lint, test, build on PR │   │   └── release.yml              ← publish to npm + deploy badge worker │   └── actions/                    ← (not used for the published Action — see §7) ├── packages/ │   ├── cli/ │   │   ├── package.json             ← name: mcp-sentry, bin: mcp-sentry │   │   ├── tsconfig.json │   │   ├── tsup.config.ts │   │   ├── src/ │   │   │   ├── index.ts │   │   │   ├── scanner.ts │   │   │   ├── grade.ts │   │   │   ├── reporter.ts │   │   │   ├── types.ts             ← shared interfaces (CheckResult, etc.) │   │   │   └── checks/ │   │   │       ├── mcp01-secrets.ts │   │   │       ├── mcp02-scope.ts │   │   │       ├── mcp03-poisoning.ts │   │   │       ├── mcp04-supply-chain.ts │   │   │       ├── mcp05-injection.ts │   │   │       ├── mcp06-intent.ts     ← active intent-subversion implementation │   │   │       ├── mcp07-auth.ts │   │   │       └── mcp08-logging.ts │   │   └── fixtures/ │   │       ├── clean-server/        ← should produce grade A │   │       ├── injection-vuln/      ← MCP05 fixture │   │       ├── secrets-exposed/     ← MCP01 fixture │   │       └── full-vulns/          ← all checks fire │   └── action/ │       ├── action.yml │       └── src/ │           └── main.ts ├── apps/ │   └── web/                         ← Astro site (docs + landing) └── workers/     └── badge/         ├── wrangler.toml         └── src/             └── index.ts |
 | --- |
 
 # **10. Build ****&**** Release Pipeline**
@@ -591,19 +591,19 @@ The corpus is pinned in packages/cli/fixtures/corpus.txt (committed to the repo)
 | 2 | MCP05 cross-function taint tracking? | v1.0: intra-function only. v1.1: inter-function taint via call graph. | Dev |
 | 3 | npm audit --json structure stability? | Pin to npm CLI version in CI. Parse using known schema; log unexpected fields. | Dev |
 | 4 | Cloudflare KV 1K writes/day sufficient? | At launch, yes. Add write batching / queue if exceeded post-launch. | Dev |
-| 5 | MCP06 intent subversion static detectability? | Research during v1.0 build. Include in v1.0 if pattern is clear. | Dev |
+| 5 | MCP06 false-positive tuning strategy? | Active in v1.1. Continue fixture/corpus tuning and tighten heuristics where needed. | Dev |
 | 6 | Vercel Hobby plan bandwidth for docs site? | 100 GB/month. Adequate for static Astro site at projected traffic. | Dev |
-| 7 | KV rate-limit TOCTOU race — Durable Objects for v1.1? | Known limitation in v1.0. Evaluate Cloudflare Durable Objects for atomic counter in v1.1. Low priority until write volume exceeds ~500/day. | Dev |
+| 7 | Durable Object rate-limit scaling threshold? | DO limiter shipped in v1.1; monitor write volume and latency for hot-key owner/repo pairs. | Dev |
 
 # **15. Implementation Phases**
 
 | **Phase** | **Duration** | **Deliverables** | **Exit Condition** |
 | --- | --- | --- | --- |
-| 1 — Foundation | Week 1 | CLI scaffold, Commander setup, file walker, ts-morph integration, MCP05 check, mcp06-intent.ts stub (NotImplementedError placeholder) | npx mcp-sentry . detects exec() injection in fixture; mcp06 stub present and throws NotImplementedError |
+| 1 — Foundation | Week 1 | CLI scaffold, Commander setup, file walker, ts-morph integration, MCP05 check, MCP06 intent check baseline | npx mcp-sentry . detects exec() injection in fixture; MCP06 checks execute without scan aborts |
 | 2 — Core Checks | Week 2 | MCP01, MCP02, MCP03, MCP04 checks. Text output with grade. Vitest fixtures. | MCP01–MCP05 pass fixture suite with <15% FP rate |
 | 3 — Completion | Week 3 | MCP07, MCP08. JSON + SARIF + Markdown output. --fail-on. npm publish. | npm package published. npx mcp-sentry works globally. |
 | 4 — Ecosystem | Week 4 | Cloudflare Worker badge API. Shields.io. --report. Astro docs. GitHub Action v1. | Full E2E: scan → badge → README → Action PR comment |
-| 5+ — v1.1 | Post-launch | Dynamic analysis, Python support, pre-commit hook, VS Code extension, MCP06 | Community demand drives prioritisation |
+| 5+ — future releases | Post-launch | Dynamic analysis, Python support, pre-commit hook, VS Code extension | Community demand drives prioritisation |
 
 # **16. Appendix A — Dependency List**
 

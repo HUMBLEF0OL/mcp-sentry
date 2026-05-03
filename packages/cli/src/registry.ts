@@ -56,9 +56,10 @@ export const REGISTRY: CheckDescriptor[] = [
 	{
 		owaspId: 'MCP06',
 		title: 'Intent Subversion',
-		description: 'Deferred to v1.1. Emits a one-time stderr notice; produces no findings.',
-		severities: [],
-		status: 'deferred-v1.1',
+		description:
+			'Detects mismatch between advertised tool intent (name/description) and side-effecting handler behaviour, plus missing or trivially short descriptions.',
+		severities: ['high', 'medium'],
+		status: 'active',
 		run: mcp06,
 	},
 	{

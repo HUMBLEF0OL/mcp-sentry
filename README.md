@@ -3,17 +3,28 @@
 [![mcp-sentry](https://img.shields.io/endpoint?url=https://mcp-sentry.dev/api/badge/example/example)](https://mcp-sentry.dev)
 
 Static-analysis security linter for TypeScript MCP (Model Context Protocol) servers.
-Detects the OWASP MCP Top 10 categories (MCP01–MCP05, MCP07, MCP08 in v1.0;
-MCP06 in v1.1), grades the project A–F, and integrates with CI via SARIF, PR
-comments, and a public Shields.io badge.
+Detects all eight OWASP MCP Top 10 categories covered in v1.1 (MCP01–MCP08),
+grades the project A–F, and integrates with CI via SARIF, PR comments, and a
+public Shields.io badge.
 
 ## Status
 
-**v1.0 release-candidate.** All seven active OWASP MCP Top 10 checks
-(MCP01–MCP05, MCP07, MCP08), every reporter (text / JSON / SARIF / Markdown),
-the Cloudflare badge worker, the GitHub Action, and the Astro docs site are
-implemented per the [Implementation Plan](docs/Implementation%20Plan.md).
-MCP06 ships as a deferred-v1.1 stub.
+**v1.1 release.** All eight active OWASP MCP Top 10 checks (MCP01–MCP08),
+every reporter (text / JSON / SARIF / Markdown), the Cloudflare badge worker
+(now with Durable Object atomic rate limiter and optional HMAC-SHA256 request
+signing), the GitHub Action, and the Astro docs site are implemented per the
+[Implementation Plan](docs/Implementation%20Plan.md).
+
+v1.1 changes layered on top of v1.0:
+
+- **MCP06 Intent Subversion** — full implementation (read-only-named tools that
+  mutate state, missing/trivial descriptions).
+- **MCP05 Command Injection** — inter-procedural taint tracking through local
+  helper functions in the same source file.
+- **HMAC-SHA256 signing** on `POST /api/report` (soft-launch — set
+  `MCP_SENTRY_SECRET` env on the CLI and `BADGE_HMAC_SECRET` Worker secret).
+- **Cloudflare Durable Object** atomic rate limiter (eliminates the v1.0
+  KV-timestamp TOCTOU race).
 
 ## Install / Use
 
@@ -53,19 +64,21 @@ Add to your README:
 The badge is updated by `mcp-sentry scan --report`. **Disclosure:** because the
 badge reflects the *last reported scan*, a project can game it by running the
 CLI on a sanitised tree before publishing. Treat the badge as a signal, not a
-guarantee. HMAC-signed report submissions are tracked for v1.1 (see
-[deferred items](docs/Implementation%20Plan.md#10-open-items--deferred-to-v11)).
+guarantee. To enforce signed submissions in v1.1, set `MCP_SENTRY_SECRET` in
+the CLI environment and `BADGE_HMAC_SECRET` as a Worker secret — the CLI will
+sign each request with HMAC-SHA256 and the Worker will verify (unsigned
+submissions are still accepted during the soft-launch window).
 
 ## OWASP MCP Top 10 coverage
 
-| ID | Title | v1.0 status |
+| ID | Title | v1.1 status |
 | --- | --- | --- |
 | MCP01 | Token / Secret Exposure | Active |
 | MCP02 | Privilege Scope Creep | Active |
 | MCP03 | Tool Poisoning | Active |
 | MCP04 | Supply Chain | Active |
-| MCP05 | Command Injection | Active |
-| MCP06 | Intent Subversion | Deferred to v1.1 (stub registered) |
+| MCP05 | Command Injection (intra + inter-procedural) | Active |
+| MCP06 | Intent Subversion | Active (new in v1.1) |
 | MCP07 | Insufficient Authentication | Active |
 | MCP08 | Missing Audit Logging | Active |
 
@@ -91,16 +104,18 @@ pnpm -r test
 
 CI runs the same gates on Linux / macOS / Windows × Node 20.
 
-## Deferred to v1.1
+## Deferred to future releases
 
-See [Implementation Plan §10](docs/Implementation%20Plan.md#10-open-items--deferred-to-v11):
+No longer in v1.1 — these were all shipped: MCP06 full implementation,
+inter-procedural MCP05 taint, HMAC-SHA256 signing, Durable Object rate limiter.
 
-- Full MCP06 intent-subversion implementation
-- Cross-function (inter-procedural) taint tracking for MCP05
-- HMAC-SHA256 signing on `POST /api/report`
-- Cloudflare Durable Objects rate limiter (replaces KV TOCTOU)
-- Drive false-positive rate from <15% to <8%
-- Python MCP server support, pre-commit hook, VS Code extension
+Still deferred:
+
+- Drive false-positive rate from <15% to <8% (corpus-driven, multi-release work)
+- Python MCP server support
+- Pre-commit hook distribution
+- VS Code extension
+- Scan-time perf optimisation to <1s for 5–15 files
 
 ## License
 
