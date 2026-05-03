@@ -92,6 +92,16 @@ apps/web/            # Astro docs site at mcp-sentry.dev
 docs/                # Technical Spec + Implementation Plan
 ```
 
+### Vercel Ignore Build Step (monorepo)
+
+`apps/web/vercel.json` uses `ignoreCommand` to skip web deploys when no
+relevant monorepo paths changed. Exit-code semantics are critical: `0` means
+skip build, any non-zero means run build. Use `:(top)` pathspecs so
+`git diff` is anchored to repo root even if Vercel runs from a subdirectory.
+Base SHA prefers `VERCEL_GIT_PREVIOUS_SHA` and falls back to `HEAD^` when the
+env var is missing. If the base SHA cannot be resolved, fail open with
+non-zero so Vercel performs a full safe build.
+
 ## Development
 
 ```sh
