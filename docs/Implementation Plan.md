@@ -363,7 +363,6 @@ sub-1s perf goal) remain deferred.
       (TSD §6.5, §14 item 7) — shipped v1.1: `RateLimiter` DO class with
       atomic per-instance fetch handler; alarm prunes stale timestamps.
 - [ ] Drive FP rate from <15% to <8% via expanded corpus (TSD §11.2).
-- [ ] Python MCP server support, pre-commit hook, VS Code extension (TSD §15).
 - [ ] Scan-time perf optimisation to <1s for 5–15 files.
 
 ### Tracked assumptions / monitoring
