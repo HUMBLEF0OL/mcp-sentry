@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { type Unstable_DevWorker, unstable_dev } from 'wrangler';
 
 const SCRIPT = fileURLToPath(new URL('../src/index.ts', import.meta.url));
@@ -25,14 +25,29 @@ async function startWorker(opts: { hmacSecret?: string } = {}): Promise<Unstable
 	});
 }
 
-beforeEach(async () => {
-	counter++;
-	testOwner = `acme-${process.pid}-${counter}`;
+async function withWorker<T>(
+	opts: { hmacSecret?: string },
+	run: (w: Unstable_DevWorker) => Promise<T>,
+): Promise<T> {
+	const w = await startWorker(opts);
+	try {
+		return await run(w);
+	} finally {
+		await w.stop();
+	}
+}
+
+beforeAll(async () => {
 	worker = await startWorker();
 });
 
-afterEach(async () => {
+afterAll(async () => {
 	await worker.stop();
+});
+
+beforeEach(() => {
+	counter++;
+	testOwner = `acme-${process.pid}-${counter}`;
 });
 
 const BASE_VALID = {
@@ -203,45 +218,50 @@ describe('HMAC signing (v1.1 soft-launch)', () => {
 	}
 
 	it('accepts unsigned requests when secret is configured (soft-launch)', async () => {
-		await worker.stop();
-		worker = await startWorker({ hmacSecret: SECRET });
-		const res = await post(valid({ owner: `hmac-soft-${counter}` }));
-		expect(res.status).toBe(200);
+		await withWorker({ hmacSecret: SECRET }, async (secretWorker) => {
+			const owner = `hmac-soft-${process.pid}-${Date.now()}-${counter}`;
+			const res = (await secretWorker.fetch('/api/report', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(valid({ owner })),
+			})) as unknown as Response;
+			expect(res.status).toBe(200);
+		});
 	});
 
 	it('accepts a correctly-signed request', async () => {
-		await worker.stop();
-		worker = await startWorker({ hmacSecret: SECRET });
-		const payload = valid({ owner: `hmac-ok-${counter}` });
-		const body = JSON.stringify(payload);
-		const sig = `sha256=${await hmacHex(SECRET, body)}`;
-		const res = (await worker.fetch('/api/report', {
-			method: 'POST',
-			headers: { 'content-type': 'application/json', 'x-mcp-sentry-signature': sig },
-			body,
-		})) as unknown as Response;
-		expect(res.status).toBe(200);
+		await withWorker({ hmacSecret: SECRET }, async (secretWorker) => {
+			const payload = valid({ owner: `hmac-ok-${process.pid}-${Date.now()}-${counter}` });
+			const body = JSON.stringify(payload);
+			const sig = `sha256=${await hmacHex(SECRET, body)}`;
+			const res = (await secretWorker.fetch('/api/report', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json', 'x-mcp-sentry-signature': sig },
+				body,
+			})) as unknown as Response;
+			expect(res.status).toBe(200);
+		});
 	});
 
 	it('rejects a tampered signature with 401', async () => {
-		await worker.stop();
-		worker = await startWorker({ hmacSecret: SECRET });
-		const payload = valid({ owner: `hmac-bad-${counter}` });
-		const body = JSON.stringify(payload);
-		const res = (await worker.fetch('/api/report', {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-				'x-mcp-sentry-signature': `sha256=${'0'.repeat(64)}`,
-			},
-			body,
-		})) as unknown as Response;
-		expect(res.status).toBe(401);
+		await withWorker({ hmacSecret: SECRET }, async (secretWorker) => {
+			const payload = valid({ owner: `hmac-bad-${process.pid}-${Date.now()}-${counter}` });
+			const body = JSON.stringify(payload);
+			const res = (await secretWorker.fetch('/api/report', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json',
+					'x-mcp-sentry-signature': `sha256=${'0'.repeat(64)}`,
+				},
+				body,
+			})) as unknown as Response;
+			expect(res.status).toBe(401);
+		});
 	});
 
 	it('ignores signature header entirely when no secret is configured', async () => {
-		// `worker` was started without a secret in beforeEach.
-		const payload = valid({ owner: `hmac-none-${counter}` });
+		// `worker` was started without a secret in beforeAll.
+		const payload = valid({ owner: `hmac-none-${process.pid}-${Date.now()}-${counter}` });
 		const body = JSON.stringify(payload);
 		const res = (await worker.fetch('/api/report', {
 			method: 'POST',
