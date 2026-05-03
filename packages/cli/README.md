@@ -4,6 +4,8 @@
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-green)](package.json)
 
+**📚 [Full Documentation](https://mcp-sentry.vercel.app)** — See the complete guide, API reference, and examples at the dedicated site.
+
 Static-analysis security linter for TypeScript **Model Context Protocol (MCP)** servers. Scans your MCP implementation for all eight **OWASP MCP Top 10** vulnerabilities, grades your project A–F, and integrates seamlessly with CI/CD pipelines.
 
 ## What is mcp-sentry?
@@ -295,7 +297,7 @@ Patterns follow `.gitignore` syntax.
 Display your MCP security grade in your README:
 
 ```markdown
-[![mcp-sentry Grade](https://img.shields.io/endpoint?url=https://mcp-sentry.dev/api/badge/owner/repo)](https://mcp-sentry.dev)
+[![mcp-sentry Grade](https://img.shields.io/endpoint?url=https://mcp-sentry.vercel.app/api/badge/owner/repo)](https://mcp-sentry.vercel.app)
 ```
 
 To update the badge, run:
@@ -374,7 +376,7 @@ MIT – See [LICENSE](../../LICENSE)
 
 ## Resources
 
-- **Documentation**: https://mcp-sentry.dev
+- **Full Documentation**: https://mcp-sentry.vercel.app
 - **OWASP MCP Security**: https://owasp.org/www-project-model-context-protocol/
 - **Report Issues**: https://github.com/HUMBLEF0OL/mcp-sentry/issues
 - **Security Advisories**: https://github.com/HUMBLEF0OL/mcp-sentry/security/advisories
