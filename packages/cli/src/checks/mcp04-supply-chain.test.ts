@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Project } from 'ts-morph';
 import { describe, expect, it } from 'vitest';
 import type { ScanOptions } from '../types.js';
 import mcp04, { __testables } from './mcp04-supply-chain.js';
@@ -19,9 +20,10 @@ function baseOpts(p: string): ScanOptions {
 
 describe('MCP04 — supply chain', () => {
 	it('flags caret/star ranges on full-vulns fixture', async () => {
-		// biome-ignore lint/suspicious/noExplicitAny: project unused by check
+		// MCP04 ignores the ts-morph `Project` argument; cast through
+		// `unknown` so the test does not need to construct one.
 		const findings = await mcp04(
-			undefined as any,
+			undefined as unknown as Project,
 			[],
 			baseOpts(path.join(fixtureRoot, 'full-vulns')),
 		);

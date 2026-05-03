@@ -3,33 +3,36 @@
 # Format: owner/repo@commitSHA
 # One entry per line. Comments (#) and blanks are ignored by `scripts/measure-fp.ts`.
 #
-# Initial seed targets: 5 official Anthropic MCP examples,
-# 10 most-downloaded community MCP packages, 5 awesome-mcp servers.
-# Replace each TODO commit SHA with a pinned 40-char hash before tagging v1.0.0
-# (see docs/Implementation Plan.md §11 / §12).
+# 20 pinned MCP repositories grouped as:
+#   - 5 official MCP-org reference projects
+#   - 10 widely-deployed first-party / community servers
+#   - 5 awesome-mcp curated community servers
 #
-# Official Anthropic MCP examples
+# Per Implementation Plan §7.3, the corpus is updated only on minor/major
+# releases. Re-pin every SHA before cutting a new tag.
+#
+# --- Official MCP-org reference projects (5) ---
 modelcontextprotocol/servers@4503e2d12b799448cd05f789dd40f9643a8d1a6c
-modelcontextprotocol/python-sdk@TODO_SHA_002
+modelcontextprotocol/python-sdk@3d7b311de07aade1281d18aa7b04689a81ab8793
 modelcontextprotocol/typescript-sdk@4fbcfcd176b6b189970263c4625eb6e60db043d2
 modelcontextprotocol/inspector@f18775a1a5f3bd4b319763b4c12b3230091dd122
-modelcontextprotocol/create-python-server@TODO_SHA_005
+modelcontextprotocol/create-python-server@b07744de4f10e92cfd1a98b51f7aac8ee5805d69
 #
-# Most-downloaded MCP server packages (npm)
-mendableai/firecrawl-mcp-server@TODO_SHA_006
-modelcontextprotocol/server-filesystem@TODO_SHA_007
-modelcontextprotocol/server-github@TODO_SHA_008
-modelcontextprotocol/server-postgres@TODO_SHA_009
-modelcontextprotocol/server-puppeteer@TODO_SHA_010
-modelcontextprotocol/server-slack@TODO_SHA_011
-modelcontextprotocol/server-brave-search@TODO_SHA_012
-modelcontextprotocol/server-google-maps@TODO_SHA_013
-modelcontextprotocol/server-fetch@TODO_SHA_014
-modelcontextprotocol/server-everything@TODO_SHA_015
+# --- Widely-deployed first-party / community MCP servers (10) ---
+firecrawl/firecrawl-mcp-server@57d2d0f31ce6d792078e3e6b55b9bcdf6a8024fd
+supabase-community/supabase-mcp@5a8d9652ab975b9f99e622feb296f1d946994dee
+cloudflare/mcp-server-cloudflare@10a47554af4d10d022e7ad75d83bfd012167fe35
+microsoft/playwright-mcp@4c76659c5c637d2c66b8708012c9562c6c41773b
+upstash/context7@795d5da720e16c417ae30a548a475672ae35e92f
+grafana/mcp-grafana@c265c04d02d8996eb95809113c11900334fd822e
+doobidoo/mcp-memory-service@acbc5a8949f6fbcace702415a0097c02b973c986
+evalstate/mcp-hfspace@b9e3903f1fb679629ec2995697b444700bcf001a
+GongRzhe/Office-Word-MCP-Server@a3bbbb6d6167e68cf855d73ef7dc6cd8cfbfedba
+ferrislucas/iterm-mcp@936182b2bbcdada70cf93d0284a48ab227d06a02
 #
-# Community MCP servers (awesome-mcp)
+# --- Awesome-mcp curated community servers (5) ---
 punkpeye/awesome-mcp-servers@d16b4648b32909b344dc7c2d3f8aa46c44a7b683
 zueai/mcp-manager@0713b36f75aa27ce99871bb316c36ee9aa01e2fe
-sooperset/mcp-atlassian@TODO_SHA_018
-metoro-io/mcp-golang@TODO_SHA_019
-ferrislucas/iterm-mcp@TODO_SHA_020
+sooperset/mcp-atlassian@d8bc78698a63cb6b321c7ca796d6329d448f7f6d
+metoro-io/mcp-golang@e5d629c5cd43e3470dcd3bf4cbc675a90bfcf513
+alexbakers/mcp-ipfs@09bfcc95aa281f11ba411522bae71d3c9ff90dd9

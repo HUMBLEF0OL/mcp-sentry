@@ -9,20 +9,19 @@ comments, and a public Shields.io badge.
 
 ## Status
 
-**Pre-release (Phase 1 of [Implementation Plan](docs/Implementation%20Plan.md)).**
-The CLI scaffolding, MCP05 command-injection check, and MCP06 deferred stub are
-implemented. Remaining checks, reporters, badge worker, GitHub Action, and docs
-site land in Phases 2–4.
+**v1.0 release-candidate.** All seven active OWASP MCP Top 10 checks
+(MCP01–MCP05, MCP07, MCP08), every reporter (text / JSON / SARIF / Markdown),
+the Cloudflare badge worker, the GitHub Action, and the Astro docs site are
+implemented per the [Implementation Plan](docs/Implementation%20Plan.md).
+MCP06 ships as a deferred-v1.1 stub.
 
 ## Install / Use
-
-Once published to npm:
 
 ```sh
 npx mcp-sentry@latest scan ./path/to/mcp-server
 ```
 
-During Phase 1 development, run from a local checkout:
+From a local checkout:
 
 ```sh
 pnpm install
@@ -31,7 +30,7 @@ node packages/cli/dist/bin.cjs scan ./packages/cli/fixtures/injection-vuln
 node packages/cli/dist/bin.cjs checks
 ```
 
-### Common flags (Phase 3 surface — not all wired in Phase 1)
+### Common flags
 
 | Flag | Purpose |
 | --- | --- |
@@ -61,22 +60,22 @@ guarantee. HMAC-signed report submissions are tracked for v1.1 (see
 
 | ID | Title | v1.0 status |
 | --- | --- | --- |
-| MCP01 | Token / Secret Exposure | Phase 2 |
-| MCP02 | Privilege Scope Creep | Phase 2 |
-| MCP03 | Tool Poisoning | Phase 2 |
-| MCP04 | Supply Chain | Phase 2 |
-| MCP05 | Command Injection | **Active (Phase 1)** |
+| MCP01 | Token / Secret Exposure | Active |
+| MCP02 | Privilege Scope Creep | Active |
+| MCP03 | Tool Poisoning | Active |
+| MCP04 | Supply Chain | Active |
+| MCP05 | Command Injection | Active |
 | MCP06 | Intent Subversion | Deferred to v1.1 (stub registered) |
-| MCP07 | Insufficient Authentication | Phase 3 |
-| MCP08 | Missing Audit Logging | Phase 3 |
+| MCP07 | Insufficient Authentication | Active |
+| MCP08 | Missing Audit Logging | Active |
 
 ## Repository layout
 
 ```
 packages/cli/        # mcp-sentry CLI (npm: mcp-sentry)
-packages/action/     # GitHub Action composite (Phase 4)
-workers/badge/       # Cloudflare Worker badge API (Phase 4)
-apps/web/            # Astro docs site at mcp-sentry.dev (Phase 4)
+packages/action/     # GitHub Action composite (PR comment + min-grade gate)
+workers/badge/       # Cloudflare Worker badge API (Shields.io endpoint)
+apps/web/            # Astro docs site at mcp-sentry.dev
 docs/                # Technical Spec + Implementation Plan
 ```
 
