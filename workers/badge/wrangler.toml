@@ -2,11 +2,12 @@ name = "mcp-sentry-badge"
 main = "src/index.ts"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
 
 [[kv_namespaces]]
 binding = "MCP_SENTRY_BADGES"
-id = "[FILL: KV namespace ID from Cloudflare dashboard]"
-preview_id = "[FILL: preview KV namespace ID]"
+id = "4131184d23804aeba32428ca35c4e20d"
+preview_id = "b6b06deb5dd6444dbe1a9052b9b35cd1"
 
 # v1.1: Durable Object atomic rate limiter — replaces the v1.0 KV-timestamp
 # limiter (TSD §6.5, §14 item 7). Per-instance fetch handlers serialise so
