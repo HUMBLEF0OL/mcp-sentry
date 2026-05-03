@@ -56,12 +56,12 @@ const CASES: PatternCase[] = [
 	},
 	{
 		id: 'MCP01-ANTHROPIC',
-		positive: 'const k="sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";',
+		positive: 'const k="sk-ant-' + 'api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";',
 	},
 	{
 		id: 'MCP01-OPENAI',
-		positive: 'const k = "sk-proj-AAAAAAAAAAAAAAAAAAA_FAKEKEY_BBBBBBBBBBBBBBBB";',
-		negative: 'const k = "sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";',
+		positive: 'const k = "sk-proj-' + 'AAAAAAAAAAAAAAAAAAAAT3BlbkFJBBBBBBBBBBBBBBBBBBBB";',
+		negative: 'const k = "sk-ant-' + 'api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";',
 	},
 	{
 		id: 'MCP01-GH-PAT',
@@ -74,9 +74,9 @@ const CASES: PatternCase[] = [
 	{
 		id: 'MCP01-SLACK-WEBHOOK',
 		positive:
-			'url = "https://hooks.slack.com/services/T0123ABCD/B0123ABCD/FAKETOKENNOTREALATALL0000"',
+			'url = "https://hooks.slack.com/services/T0123ABCD/B0123ABCD/' + 'abcdef1234567890ABCDEFGH"',
 	},
-	{ id: 'MCP01-STRIPE', positive: 'const k="rk_faux_aaaaaaaaaaaaaaaaaaaaaaaa";' },
+	{ id: 'MCP01-STRIPE', positive: 'const k="rk_live_' + 'aaaaaaaaaaaaaaaaaaaaaaaa";' },
 	{ id: 'MCP01-NPM', positive: 'const t="ntest_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";' },
 	{ id: 'MCP01-GITLAB', positive: 'const t="gltest-aBcDeFgHiJkLmNoPqRsT";' },
 	{
@@ -90,8 +90,8 @@ const CASES: PatternCase[] = [
 		positive: 'const k="SGTEST.AAAAAAAAAAAAAAAAAAAAA.BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB";',
 	},
 	{ id: 'MCP01-MAILGUN', positive: 'const k="ktest-abcdef0123456789abcdef0123456789";' },
-	{ id: 'MCP01-TWILIO-SID', positive: 'const sid="ACFAKE_TESTONLY0000abcdef01234567";' },
-	{ id: 'MCP01-TWILIO-AUTH', positive: 'const t="SKFAKE_TESTONLY0000abcdef01234567";' },
+	{ id: 'MCP01-TWILIO-SID', positive: 'const sid="AC0123456789' + 'abcdef0123456789abcdef";' },
+	{ id: 'MCP01-TWILIO-AUTH', positive: 'const t="SK0123456789' + 'abcdef0123456789abcdef";' },
 	{
 		id: 'MCP01-DIGITALOCEAN',
 		positive: `const t = "dop_v1_${'a'.repeat(64)}";`,
@@ -129,7 +129,7 @@ describe('MCP01 — vendor-pattern matrix', () => {
 	}
 
 	it('a single modern OpenAI key produces exactly one finding (no OPENAI/OPENAI-LEGACY overlap)', () => {
-		const sample = 'const k = "sk-proj-AAAAAAAAAAAAAAAAAAA_FAKEKEY_BBBBBBBBBBBBBBBB";';
+		const sample = 'const k = "sk-proj-' + 'AAAAAAAAAAAAAAAAAAAAT3BlbkFJBBBBBBBBBBBBBBBBBBBB";';
 		const hits = __testables.scanText(sample);
 		const openai = hits.filter(
 			(h) => h.patternId === 'MCP01-OPENAI' || h.patternId === 'MCP01-OPENAI-LEGACY',
