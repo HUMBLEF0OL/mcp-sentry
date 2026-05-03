@@ -44,7 +44,9 @@ jobs:
         working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ""
-        run: npm publish --access public --provenance
+        run: |
+          unset NODE_AUTH_TOKEN
+          npm publish --access public --provenance
 
       - name: Create GitHub release
         env:
