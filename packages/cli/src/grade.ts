@@ -86,6 +86,6 @@ export function compareGrades(a: Grade, b: Grade): number {
 }
 
 /** Returns true when `actual` is strictly worse than `threshold`. */
-export function gradeBelow(actual: Grade, threshold: Grade): boolean {
+export function isBelowThreshold(actual: Grade, threshold: Grade): boolean {
 	return compareGrades(actual, threshold) < 0;
 }
