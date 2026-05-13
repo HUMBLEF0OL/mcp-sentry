@@ -148,3 +148,5 @@ apps/web/.astro/
 # Wrangler local state
 workers/badge/.wrangler/
 
+# Coherence plugin (npm: cohrence) — per-developer state (do not commit)
+.claude/coherence/
